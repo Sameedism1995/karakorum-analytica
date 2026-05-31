@@ -15,6 +15,12 @@ services:
         value: "false"
       - key: X_POSTING_ENABLED
         value: "false"
+      - key: SCHEDULER_ENABLED
+        value: "true"
+      - key: RUN_COLLECTION_ON_STARTUP
+        value: "true"
+      - key: COLLECTION_INTERVAL_MINUTES
+        value: "15"
       - key: PYTHON_VERSION
         value: "3.11.9"
       # Use Supabase Postgres in production (set in Render dashboard):

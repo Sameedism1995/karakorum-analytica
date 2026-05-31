@@ -1,4 +1,5 @@
 import json
+import threading
 import time
 from datetime import datetime, timezone
 from typing import Any
@@ -7,15 +8,15 @@ import httpx
 from loguru import logger
 
 GDELT_BASE = "https://api.gdeltproject.org/api/v2/doc/doc"
-GDELT_MIN_INTERVAL_SECONDS = 6
+GDELT_MIN_INTERVAL_SECONDS = 10
+GDELT_429_BACKOFF_SECONDS = (15, 30, 45)
 
 _last_gdelt_request_at: float = 0.0
+_gdelt_lock = threading.Lock()
 
 SECURITY_QUERY = (
-    "Pakistan (Balochistan OR Quetta OR Peshawar OR Karachi OR Lahore OR Islamabad OR "
-    "Waziristan OR Gwadar OR KP OR Sindh OR Punjab) "
-    "(blast OR explosion OR attack OR militant OR terrorism OR operation OR protest OR "
-    "security OR police OR border OR kidnapping OR abduction OR clash OR IED)"
+    "Pakistan (Balochistan OR Quetta OR Karachi OR Peshawar OR Islamabad OR Lahore) "
+    "(attack OR blast OR explosion OR militant OR terrorism OR operation OR security OR police)"
 )
 
 
@@ -45,15 +46,20 @@ def _fetch_gdelt(params: dict[str, Any]) -> dict[str, Any]:
     global _last_gdelt_request_at
     headers = {"User-Agent": "pakistan-osint-news-mvp/1.0 (public research)"}
 
-    for attempt in range(3):
+    for attempt in range(len(GDELT_429_BACKOFF_SECONDS) + 1):
         _wait_for_gdelt_rate_limit()
         with httpx.Client(timeout=45.0, headers=headers) as client:
             response = client.get(GDELT_BASE, params=params)
             _last_gdelt_request_at = time.time()
 
         if response.status_code == 429:
-            logger.warning(f"GDELT rate limited; retrying in {GDELT_MIN_INTERVAL_SECONDS}s (attempt {attempt + 1}/3)")
-            time.sleep(GDELT_MIN_INTERVAL_SECONDS)
+            if attempt >= len(GDELT_429_BACKOFF_SECONDS):
+                break
+            wait = GDELT_429_BACKOFF_SECONDS[attempt]
+            logger.warning(
+                f"GDELT rate limited; waiting {wait}s (attempt {attempt + 1}/{len(GDELT_429_BACKOFF_SECONDS) + 1})"
+            )
+            time.sleep(wait)
             continue
 
         if response.status_code >= 400:
@@ -77,6 +83,11 @@ def _fetch_gdelt(params: dict[str, Any]) -> dict[str, Any]:
 
 def collect_gdelt(max_records: int = 25) -> list[dict[str, Any]]:
     """Collect Pakistan-related security news from GDELT Doc API."""
+    with _gdelt_lock:
+        return _collect_gdelt_locked(max_records)
+
+
+def _collect_gdelt_locked(max_records: int = 25) -> list[dict[str, Any]]:
     params = {
         "query": SECURITY_QUERY,
         "mode": "ArtList",

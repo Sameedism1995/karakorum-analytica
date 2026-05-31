@@ -13,6 +13,8 @@ class Settings(BaseSettings):
 
     database_url: str = "sqlite:///./local.db"
     collection_interval_minutes: int = 15
+    scheduler_enabled: bool = True
+    run_collection_on_startup: bool = False
 
     # Supabase — set SUPABASE_DB_URL (recommended) or URL + DB password
     supabase_url: str = ""
