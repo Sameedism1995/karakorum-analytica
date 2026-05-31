@@ -1,0 +1,21 @@
+"""Karakorum Analytica brand palette."""
+
+MIDNIGHT_NAVY = "#0B1623"
+SLATE_BLUE = "#334155"
+STEEL_MIST = "#94A3B8"
+ARCTIC_WHITE = "#F5F7FA"
+SIGNAL_CRIMSON = "#B3132F"
+
+# Derived tints for UI states
+CRIMSON_SOFT = "#F8E8EC"
+CRIMSON_BORDER = "#E8A0AE"
+SLATE_SOFT = "#E8ECF0"
+NAVY_SOFT = "#152536"
+
+CHART_SEQUENCE = [SLATE_BLUE, STEEL_MIST, MIDNIGHT_NAVY, SIGNAL_CRIMSON, "#5C6B7A"]
+
+STATUS_CHART_COLORS = {
+    "save_only": STEEL_MIST,
+    "needs_review": SIGNAL_CRIMSON,
+    "ready_for_review": SLATE_BLUE,
+}

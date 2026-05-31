@@ -11,6 +11,14 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from app.config import TARGET_KEYWORDS
+from dashboard.theme import (
+    CHART_SEQUENCE,
+    MIDNIGHT_NAVY,
+    SIGNAL_CRIMSON,
+    SLATE_BLUE,
+    STATUS_CHART_COLORS,
+    STEEL_MIST,
+)
 
 STATUS_BADGE_CLASS = {
     "save_only": "badge-grey",
@@ -51,7 +59,7 @@ def render_header() -> None:
     st.markdown(
         """
         <div class="main-header">
-            <h1>KarakorumAnalytica</h1>
+            <h1>Karakorum Analytica</h1>
             <p>Pakistan security intelligence · GDELT, ReliefWeb & ACLED · Human review only</p>
         </div>
         """,
@@ -211,7 +219,7 @@ def _empty_chart(message: str) -> go.Figure:
         x=0.5,
         y=0.5,
         showarrow=False,
-        font={"size": 14, "color": "#94a3b8"},
+        font={"size": 14, "color": STEEL_MIST},
     )
     fig.update_layout(
         paper_bgcolor="rgba(0,0,0,0)",
@@ -236,6 +244,7 @@ def chart_news_by_source(raw_df: pd.DataFrame) -> go.Figure:
         color="source",
         title="News by source",
         text="count",
+        color_discrete_sequence=CHART_SEQUENCE,
     )
     fig.update_traces(marker_line_width=0)
     fig.update_layout(
@@ -247,6 +256,8 @@ def chart_news_by_source(raw_df: pd.DataFrame) -> go.Figure:
         xaxis_title="",
         yaxis_title="Articles",
         coloraxis_showscale=False,
+        font={"color": MIDNIGHT_NAVY},
+        title_font={"color": MIDNIGHT_NAVY, "size": 16},
     )
     return fig
 
@@ -259,11 +270,7 @@ def chart_incidents_by_status(incidents_df: pd.DataFrame) -> go.Figure:
     counts["label"] = counts["status"].map(
         lambda s: STATUS_LABEL.get(s, s.replace("_", " ").title())
     )
-    colors = {
-        "save_only": "#94a3b8",
-        "needs_review": "#f97316",
-        "ready_for_review": "#22c55e",
-    }
+    colors = STATUS_CHART_COLORS
     fig = px.pie(
         counts,
         names="label",
@@ -271,7 +278,7 @@ def chart_incidents_by_status(incidents_df: pd.DataFrame) -> go.Figure:
         title="Incidents by confidence status",
         color="status",
         color_discrete_map={
-            k: colors.get(k, "#64748b")
+            k: colors.get(k, STEEL_MIST)
             for k in counts["status"]
         },
         hole=0.45,
@@ -282,6 +289,8 @@ def chart_incidents_by_status(incidents_df: pd.DataFrame) -> go.Figure:
         height=320,
         showlegend=True,
         legend={"orientation": "h", "y": -0.1},
+        font={"color": MIDNIGHT_NAVY},
+        title_font={"color": MIDNIGHT_NAVY, "size": 16},
     )
     return fig
 
@@ -314,7 +323,7 @@ def chart_top_keywords(incidents_df: pd.DataFrame, raw_df: pd.DataFrame) -> go.F
         title="Top detected keywords",
         text="count",
     )
-    fig.update_traces(marker_color="#0d9488", marker_line_width=0)
+    fig.update_traces(marker_color=SIGNAL_CRIMSON, marker_line_width=0)
     fig.update_layout(
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
@@ -323,6 +332,8 @@ def chart_top_keywords(incidents_df: pd.DataFrame, raw_df: pd.DataFrame) -> go.F
         yaxis={"categoryorder": "total ascending"},
         xaxis_title="Mentions",
         yaxis_title="",
+        font={"color": MIDNIGHT_NAVY},
+        title_font={"color": MIDNIGHT_NAVY, "size": 16},
     )
     return fig
 
@@ -358,7 +369,7 @@ def chart_news_by_location(raw_df: pd.DataFrame) -> go.Figure:
         title="News by province / city",
         text="count",
     )
-    fig.update_traces(marker_color="#1e3a5f", marker_line_width=0)
+    fig.update_traces(marker_color=SLATE_BLUE, marker_line_width=0)
     fig.update_layout(
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
@@ -367,6 +378,8 @@ def chart_news_by_location(raw_df: pd.DataFrame) -> go.Figure:
         yaxis={"categoryorder": "total ascending"},
         xaxis_title="Articles",
         yaxis_title="",
+        font={"color": MIDNIGHT_NAVY},
+        title_font={"color": MIDNIGHT_NAVY, "size": 16},
     )
     return fig
 
