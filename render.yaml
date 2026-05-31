@@ -2,7 +2,7 @@
 # One Blueprint deploy → two public URLs. See DEPLOY.md
 services:
   - type: web
-    name: pakistan-osint-api
+    name: karakorum-analytica-api
     runtime: python
     plan: free
     buildCommand: pip install -r requirements.txt
@@ -30,7 +30,7 @@ services:
       # SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_DB_URL
 
   - type: web
-    name: pakistan-osint-dashboard
+    name: karakorum-analytica-dashboard
     runtime: python
     plan: free
     buildCommand: pip install -r requirements.txt
@@ -40,6 +40,6 @@ services:
         value: "3.11.9"
       - key: API_BASE_URL
         fromService:
-          name: pakistan-osint-api
+          name: karakorum-analytica-api
           type: web
           envVarKey: RENDER_EXTERNAL_URL

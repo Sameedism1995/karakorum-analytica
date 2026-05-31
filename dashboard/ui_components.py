@@ -1,4 +1,4 @@
-"""Reusable Streamlit UI components for the OSINT dashboard."""
+"""Reusable Streamlit UI components for KarakorumAnalytica."""
 
 from __future__ import annotations
 
@@ -51,8 +51,8 @@ def render_header() -> None:
     st.markdown(
         """
         <div class="main-header">
-            <h1>Pakistan OSINT News</h1>
-            <p>Monitor GDELT, ReliefWeb, and ACLED collection · Human review only · No auto-posting</p>
+            <h1>KarakorumAnalytica</h1>
+            <p>Pakistan security intelligence · GDELT, ReliefWeb & ACLED · Human review only</p>
         </div>
         """,
         unsafe_allow_html=True,

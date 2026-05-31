@@ -1,4 +1,4 @@
-"""HTTP client for the Pakistan OSINT News FastAPI backend."""
+"""HTTP client for the KarakorumAnalytica FastAPI backend."""
 
 from __future__ import annotations
 

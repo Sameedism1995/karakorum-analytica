@@ -1,4 +1,4 @@
-# Pakistan OSINT News MVP
+# KarakorumAnalytica
 
 Phase 1 backend for collecting public Pakistan-focused crime, conflict, and security news from open APIs, grouping incidents, scoring source confidence, and generating neutral X/Twitter draft posts for human review.
 
@@ -118,13 +118,13 @@ Use **Run Collection Now** in the sidebar to trigger the pipeline, then browse O
 
 **One-click deploy (you approve once on Render — ~3 min):**
 
-[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/Sameedism1995/pakistan-osint-news-mvp)
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/Sameedism1995/karakorum-analytica)
 
-Or open: **https://render.com/deploy?repo=https://github.com/Sameedism1995/pakistan-osint-news-mvp**
+Or open: **https://render.com/deploy?repo=https://github.com/Sameedism1995/karakorum-analytica**
 
 That creates both public services:
-- `https://pakistan-osint-api.onrender.com`
-- `https://pakistan-osint-dashboard.onrender.com` ← share this link
+- `https://karakorum-analytica-api.onrender.com`
+- `https://karakorum-analytica-dashboard.onrender.com` ← share this link
 
 I cannot complete this step without your Render login. After deploy, open the dashboard URL and click **Run Collection Now**.
 

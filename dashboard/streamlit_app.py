@@ -1,4 +1,4 @@
-"""Pakistan OSINT News — Streamlit monitoring dashboard."""
+"""KarakorumAnalytica — Streamlit monitoring dashboard."""
 
 from __future__ import annotations
 
@@ -74,7 +74,7 @@ def _handle_draft_action(action: str, draft_id: int, base_url: str) -> None:
 
 def main() -> None:
     st.set_page_config(
-        page_title="Pakistan OSINT News",
+        page_title="KarakorumAnalytica",
         page_icon="📡",
         layout="wide",
         initial_sidebar_state="expanded",

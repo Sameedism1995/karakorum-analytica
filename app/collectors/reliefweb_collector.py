@@ -35,7 +35,7 @@ def collect_reliefweb(limit: int = 50) -> list[dict[str, Any]]:
     payload_body = {
         "fields": {"include": ["title", "url", "date", "body", "country", "source"]},
     }
-    headers = {"User-Agent": "pakistan-osint-news-mvp/1.0", "Content-Type": "application/json"}
+    headers = {"User-Agent": "KarakorumAnalytica/1.0", "Content-Type": "application/json"}
 
     try:
         with httpx.Client(timeout=30.0, headers=headers) as client:

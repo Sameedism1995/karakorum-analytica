@@ -4,11 +4,11 @@
 
 **Click this link** (sign in with GitHub if asked, then click **Apply**):
 
-**https://render.com/deploy?repo=https://github.com/Sameedism1995/pakistan-osint-news-mvp**
+**https://render.com/deploy?repo=https://github.com/Sameedism1995/karakorum-analytica**
 
 Wait ~5–10 minutes. You get:
-- API: `https://pakistan-osint-api.onrender.com`
-- Dashboard: `https://pakistan-osint-dashboard.onrender.com` ← **share this**
+- API: `https://karakorum-analytica-api.onrender.com`
+- Dashboard: `https://karakorum-analytica-dashboard.onrender.com` ← **share this**
 
 Then open the dashboard → **Run Collection Now**.
 
@@ -22,15 +22,15 @@ One deploy gives you **two public URLs** (API + dashboard). No Streamlit Cloud n
 
 1. Go to [dashboard.render.com](https://dashboard.render.com) → sign in with GitHub
 2. **New → Blueprint**
-3. Select repo **`Sameedism1995/pakistan-osint-news-mvp`**
+3. Select repo **`Sameedism1995/karakorum-analytica`**
 4. Click **Apply** — Render creates:
-   - `pakistan-osint-api` → `https://pakistan-osint-api.onrender.com`
-   - `pakistan-osint-dashboard` → `https://pakistan-osint-dashboard.onrender.com`
+   - `karakorum-analytica-api` → `https://karakorum-analytica-api.onrender.com`
+   - `karakorum-analytica-dashboard` → `https://karakorum-analytica-dashboard.onrender.com`
 5. Wait ~5–10 min for both to build
 6. Open the **dashboard URL** — sidebar should show **Backend connected**
 7. Click **Run Collection Now**
 
-**Share this link with anyone:** your `pakistan-osint-dashboard.onrender.com` URL.
+**Share this link with anyone:** your `karakorum-analytica-dashboard.onrender.com` URL.
 
 Optional env vars (Render → each service → Environment):
 - `ACLED_EMAIL`, `ACLED_API_KEY`
@@ -47,18 +47,18 @@ Use this if you prefer a `.streamlit.app` URL.
 
 ### 1. Deploy API on Render (Blueprint above, or API service only)
 
-Copy the API URL, e.g. `https://pakistan-osint-api.onrender.com`
+Copy the API URL, e.g. `https://karakorum-analytica-api.onrender.com`
 
 ### 2. Deploy dashboard on Streamlit Cloud
 
 1. [share.streamlit.io](https://share.streamlit.io) → sign in with GitHub
 2. **Create app**
-3. Repo: `Sameedism1995/pakistan-osint-news-mvp`
+3. Repo: `Sameedism1995/karakorum-analytica`
 4. Main file: `dashboard/streamlit_app.py`
 5. **Secrets** (Advanced settings):
 
 ```toml
-API_BASE_URL = "https://pakistan-osint-api.onrender.com"
+API_BASE_URL = "https://karakorum-analytica-api.onrender.com"
 ```
 
 6. **Deploy**

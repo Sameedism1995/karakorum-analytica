@@ -1,4 +1,4 @@
-"""Custom CSS for the Pakistan OSINT News dashboard."""
+"""Custom CSS for the KarakorumAnalytica dashboard."""
 
 CUSTOM_CSS = """
 <style>
