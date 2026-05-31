@@ -1,5 +1,5 @@
-# Deploy the FastAPI backend on Render (free tier).
-# Dashboard goes on Streamlit Community Cloud — see DEPLOY.md
+# Deploy API + Streamlit dashboard on Render (free tier).
+# One Blueprint deploy → two public URLs. See DEPLOY.md
 services:
   - type: web
     name: pakistan-osint-api
@@ -23,9 +23,23 @@ services:
         value: "15"
       - key: PYTHON_VERSION
         value: "3.11.9"
-      # Use Supabase Postgres in production (set in Render dashboard):
-      # SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_DB_URL
       - key: DATABASE_URL
         value: sqlite:///./local.db
-      # Optional — set in Render dashboard (never commit real values):
+      # Optional — add in Render dashboard after deploy:
       # RELIEFWEB_APPNAME, ACLED_EMAIL, ACLED_API_KEY
+      # SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_DB_URL
+
+  - type: web
+    name: pakistan-osint-dashboard
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: streamlit run dashboard/streamlit_app.py --server.port $PORT --server.address 0.0.0.0 --server.headless true
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11.9"
+      - key: API_BASE_URL
+        fromService:
+          name: pakistan-osint-api
+          type: web
+          envVarKey: RENDER_EXTERNAL_URL

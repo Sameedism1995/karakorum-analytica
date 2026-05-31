@@ -114,16 +114,13 @@ streamlit run dashboard/streamlit_app.py
 
 Use **Run Collection Now** in the sidebar to trigger the pipeline, then browse Overview, Raw News, Incidents, and Drafts tabs.
 
-## Share publicly (Streamlit Cloud)
+## Share publicly
 
-To share the dashboard with anyone, deploy the **backend** (Render) and **dashboard** (Streamlit Cloud). Full step-by-step guide: **[DEPLOY.md](DEPLOY.md)**.
+**I can't deploy to Streamlit Cloud from here** — it requires you to sign in at [share.streamlit.io](https://share.streamlit.io) once.
 
-Quick summary:
+**Easiest path:** deploy both API + dashboard on Render in one click — see **[DEPLOY.md](DEPLOY.md) Option A**.
 
-1. Push this repo to GitHub
-2. Deploy API with Render using `render.yaml` → copy public URL
-3. Deploy on [share.streamlit.io](https://share.streamlit.io) with main file `dashboard/streamlit_app.py`
-4. Add Streamlit secret: `API_BASE_URL = "https://your-api.onrender.com"`
+Or use Streamlit Cloud for the UI + Render for the API — see **Option B** in DEPLOY.md.
 
 ## ACLED (optional)
 
