@@ -5,16 +5,16 @@ from app.config import get_settings
 from app.database import get_db
 from app.integrations.supabase_client import check_supabase_api, check_supabase_storage
 from app.publishers.x_publisher import post_draft_to_x
-from app.services.collection_service import collect_all, get_recent_raw_news, raw_news_to_dict
+from app.services.collection_job import get_collection_job_status, start_collection_job
+from app.services.collection_service import get_recent_raw_news, raw_news_to_dict
 from app.services.draft_service import (
     approve_draft,
     draft_to_dict,
-    generate_drafts_for_incidents,
     get_draft,
     list_drafts,
     reject_draft,
 )
-from app.services.incident_service import incident_to_dict, list_incidents, process_incidents
+from app.services.incident_service import incident_to_dict, list_incidents
 
 router = APIRouter()
 settings = get_settings()
@@ -69,11 +69,18 @@ def database_health() -> dict:
 
 
 @router.post("/collect/run")
-def run_collection(db: Session = Depends(get_db)) -> dict:
-    stats = collect_all(db)
-    incident_stats = process_incidents(db)
-    draft_stats = generate_drafts_for_incidents(db)
-    return {"collection": stats, "incidents": incident_stats, "drafts": draft_stats}
+def run_collection() -> dict:
+    """Start collection in the background (returns immediately for Render/dashboard)."""
+    payload = start_collection_job()
+    if payload["status"] == "running" and payload.get("message") == "Collection already in progress":
+        return payload
+    return payload
+
+
+@router.get("/collect/status")
+def collection_status() -> dict:
+    """Poll background collection job state."""
+    return get_collection_job_status()
 
 
 @router.get("/raw-news")

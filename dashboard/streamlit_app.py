@@ -154,17 +154,27 @@ def main() -> None:
         refresh_seconds = REFRESH_OPTIONS[refresh_label]
 
         if st.button("Run Collection Now", type="primary", use_container_width=True):
-            with st.spinner("Running collection pipeline…"):
+            with st.spinner("Starting collection…"):
                 result = backend.run_collection(base_url)
             if result["ok"]:
                 data = result["data"] or {}
-                collection = data.get("collection", {})
-                st.success(
-                    f"Collection complete — saved {collection.get('saved', 0)}, "
-                    f"incidents {data.get('incidents', {})}, "
-                    f"drafts {data.get('drafts', {})}."
-                )
-                st.rerun()
+                if result.get("async") or data.get("status") in {"started", "running"}:
+                    st.info(
+                        "Collection is running on the server. "
+                        "Wait 1–2 minutes, then refresh or enable auto-refresh."
+                    )
+                    if hasattr(backend, "get_collection_status"):
+                        status = backend.get_collection_status(base_url)
+                        if status.get("ok") and (status.get("data") or {}).get("status") == "completed":
+                            st.rerun()
+                else:
+                    collection = data.get("collection", {})
+                    st.success(
+                        f"Collection complete — saved {collection.get('saved', 0)}, "
+                        f"incidents {data.get('incidents', {})}, "
+                        f"drafts {data.get('drafts', {})}."
+                    )
+                    st.rerun()
             else:
                 st.error(result.get("error") or "Collection failed.")
 

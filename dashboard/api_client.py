@@ -58,14 +58,18 @@ def check_backend(base_url: str | None = None) -> dict[str, Any]:
 
 
 def run_collection(base_url: str | None = None) -> dict[str, Any]:
-    """Trigger POST /collect/run."""
+    """Trigger POST /collect/run (returns when job is queued, not when finished)."""
     try:
         response = requests.post(
             f"{_base_url(base_url)}/collect/run",
-            timeout=120,
+            timeout=REQUEST_TIMEOUT,
         )
         response.raise_for_status()
-        return {"ok": True, "data": response.json(), "error": None}
+        data = response.json()
+        status = data.get("status", "")
+        if status in {"started", "running"}:
+            return {"ok": True, "data": data, "error": None, "async": True}
+        return {"ok": True, "data": data, "error": None, "async": False}
     except requests.RequestException as exc:
         message = str(exc)
         if isinstance(exc, requests.HTTPError) and exc.response is not None:
@@ -75,6 +79,19 @@ def run_collection(base_url: str | None = None) -> dict[str, Any]:
             except ValueError:
                 message = exc.response.text or message
         return {"ok": False, "data": None, "error": message}
+
+
+def get_collection_status(base_url: str | None = None) -> dict[str, Any]:
+    """Fetch GET /collect/status."""
+    try:
+        response = requests.get(
+            f"{_base_url(base_url)}/collect/status",
+            timeout=REQUEST_TIMEOUT,
+        )
+        response.raise_for_status()
+        return {"ok": True, "data": response.json(), "error": None}
+    except requests.RequestException as exc:
+        return {"ok": False, "data": None, "error": str(exc)}
 
 
 def get_raw_news(
