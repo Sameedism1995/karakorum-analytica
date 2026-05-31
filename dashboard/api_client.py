@@ -30,34 +30,34 @@ class ApiError(Exception):
         self.message = message
 
 
-def _base_url(base_url: str) -> str:
-    return base_url.rstrip("/")
+def _base_url(base_url: str | None = None) -> str:
+    return resolve_base_url(base_url)
 
 
-def check_backend(base_url: str = DEFAULT_BASE_URL) -> dict[str, Any]:
-    """Return health payload from GET / or an error dict."""
+def check_backend(base_url: str | None = None) -> dict[str, Any]:
+    """Return health payload from GET /health (fallback GET /) or an error dict."""
+    url = _base_url(base_url)
     try:
-        response = requests.get(
-            f"{_base_url(base_url)}/",
-            timeout=REQUEST_TIMEOUT,
-        )
-        if response.status_code == 404:
-            return {
-                "ok": False,
-                "data": None,
-                "error": "not_found",
-                "detail": (
-                    f"No API service at {base_url}. Deploy on Render or use embedded mode."
-                ),
-            }
-        response.raise_for_status()
-        data = response.json()
-        return {"ok": True, "data": data, "error": None}
+        for path in ("/health", "/"):
+            response = requests.get(f"{url}{path}", timeout=REQUEST_TIMEOUT)
+            if response.status_code == 404:
+                continue
+            response.raise_for_status()
+            data = response.json()
+            return {"ok": True, "data": data, "error": None}
+        return {
+            "ok": False,
+            "data": None,
+            "error": "not_found",
+            "detail": (
+                f"No API service at {url}. Deploy on Render or use embedded mode."
+            ),
+        }
     except requests.RequestException as exc:
         return {"ok": False, "data": None, "error": str(exc)}
 
 
-def run_collection(base_url: str = DEFAULT_BASE_URL) -> dict[str, Any]:
+def run_collection(base_url: str | None = None) -> dict[str, Any]:
     """Trigger POST /collect/run."""
     try:
         response = requests.post(
@@ -78,7 +78,7 @@ def run_collection(base_url: str = DEFAULT_BASE_URL) -> dict[str, Any]:
 
 
 def get_raw_news(
-    base_url: str = DEFAULT_BASE_URL,
+    base_url: str | None = None,
     limit: int = 500,
 ) -> list[dict[str, Any]]:
     """Fetch GET /raw-news items."""
@@ -95,7 +95,7 @@ def get_raw_news(
 
 
 def get_incidents(
-    base_url: str = DEFAULT_BASE_URL,
+    base_url: str | None = None,
     limit: int = 500,
 ) -> list[dict[str, Any]]:
     """Fetch GET /incidents items."""
@@ -112,7 +112,7 @@ def get_incidents(
 
 
 def get_drafts(
-    base_url: str = DEFAULT_BASE_URL,
+    base_url: str | None = None,
     limit: int = 500,
 ) -> list[dict[str, Any]]:
     """Fetch GET /drafts items."""
@@ -130,7 +130,7 @@ def get_drafts(
 
 def approve_draft(
     draft_id: int,
-    base_url: str = DEFAULT_BASE_URL,
+    base_url: str | None = None,
 ) -> dict[str, Any]:
     """POST /drafts/{id}/approve."""
     try:
@@ -153,7 +153,7 @@ def approve_draft(
 
 def reject_draft(
     draft_id: int,
-    base_url: str = DEFAULT_BASE_URL,
+    base_url: str | None = None,
 ) -> dict[str, Any]:
     """POST /drafts/{id}/reject."""
     try:
@@ -176,7 +176,7 @@ def reject_draft(
 
 def post_draft(
     draft_id: int,
-    base_url: str = DEFAULT_BASE_URL,
+    base_url: str | None = None,
 ) -> dict[str, Any]:
     """POST /drafts/{id}/post — only when X posting is explicitly enabled."""
     try:

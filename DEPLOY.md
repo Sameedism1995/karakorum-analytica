@@ -32,10 +32,24 @@ One deploy gives you **two public URLs** (API + dashboard). No Streamlit Cloud n
 
 **Share this link with anyone:** your `karakorum-analytica-dashboard.onrender.com` URL.
 
-Optional env vars (Render → each service → Environment):
-- `ACLED_EMAIL`, `ACLED_API_KEY`
-- `RELIEFWEB_APPNAME`
-- `SUPABASE_DB_URL`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (persistent DB)
+Optional env vars (Render → **karakorum-analytica-api** → Environment):
+
+| Variable | Purpose |
+|----------|---------|
+| `ALLOWED_ORIGINS` | CORS — include dashboard URL + `http://localhost:8501` |
+| `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_DB_URL` | Persistent Postgres |
+| `SUPABASE_BUCKET_NAME` | Supabase storage bucket (optional) |
+| `SCRAPER_API_KEY` | Optional scraper integration |
+| `ACLED_EMAIL`, `ACLED_API_KEY` | ACLED collector |
+| `RELIEFWEB_APPNAME` | ReliefWeb collector |
+
+Dashboard service only needs `API_BASE_URL` (auto-set by Blueprint).
+
+**Health check:** `GET /health` → `{"status":"ok","service":"karakorum-analytica-api"}`
+
+**Manual deploy:** Render → service → Manual Deploy → Deploy latest commit
+
+**Logs:** Render → service → Logs
 
 Free tier sleeps when idle; first load may take ~30s.
 
@@ -69,7 +83,14 @@ Share link: `https://your-app-name.streamlit.app`
 
 ## Verify
 
-- `GET https://YOUR-API-URL/` → JSON with `"status": "running"`
+```bash
+curl https://karakorum-analytica-api.onrender.com/health
+# {"status":"ok","service":"karakorum-analytica-api"}
+
+curl https://karakorum-analytica-api.onrender.com/
+# {"message":"Karakorum Analytica API is running", ...}
+```
+
 - Dashboard → **Backend connected** → **Run Collection Now** → data in tabs
 
 ---

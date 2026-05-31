@@ -1,6 +1,7 @@
 from functools import lru_cache
 from urllib.parse import quote_plus
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -10,6 +11,7 @@ class Settings(BaseSettings):
     app_name: str = "karakorum-analytica"
     app_display_name: str = "Karakorum Analytica"
     app_env: str = "development"
+    environment: str = ""
     debug: bool = True
 
     database_url: str = "sqlite:///./local.db"
@@ -17,11 +19,19 @@ class Settings(BaseSettings):
     scheduler_enabled: bool = True
     run_collection_on_startup: bool = False
 
+    allowed_origins: str = Field(
+        default="http://localhost:8501,http://127.0.0.1:8501",
+        description="Comma-separated CORS origins",
+    )
+
     # Supabase — set SUPABASE_DB_URL (recommended) or URL + DB password
     supabase_url: str = ""
     supabase_service_role_key: str = ""
+    supabase_bucket_name: str = ""
     supabase_db_url: str = ""
     supabase_db_password: str = ""
+
+    scraper_api_key: str = ""
 
     reliefweb_appname: str = ""
 
@@ -34,6 +44,21 @@ class Settings(BaseSettings):
     x_access_token: str = ""
     x_access_token_secret: str = ""
     x_bearer_token: str = ""
+
+    @property
+    def runtime_environment(self) -> str:
+        return (self.environment or self.app_env or "development").strip()
+
+    @property
+    def is_production(self) -> bool:
+        return self.runtime_environment.lower() in {"production", "prod"}
+
+    @property
+    def cors_origins(self) -> list[str]:
+        raw = self.allowed_origins.strip()
+        if not raw:
+            return ["http://localhost:8501", "http://127.0.0.1:8501"]
+        return [origin.strip() for origin in raw.split(",") if origin.strip()]
 
     @property
     def acled_configured(self) -> bool:

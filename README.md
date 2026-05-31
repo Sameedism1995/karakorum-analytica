@@ -114,21 +114,139 @@ streamlit run dashboard/streamlit_app.py
 
 Use **Run Collection Now** in the sidebar to trigger the pipeline, then browse Overview, Raw News, Incidents, and Drafts tabs.
 
-## Share publicly
+## Share publicly (Render)
 
-**One-click deploy (you approve once on Render — ~3 min):**
+**One-click Blueprint deploy:**
 
 [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/Sameedism1995/karakorum-analytica)
 
 Or open: **https://render.com/deploy?repo=https://github.com/Sameedism1995/karakorum-analytica**
 
-That creates both public services:
-- `https://karakorum-analytica-api.onrender.com`
-- `https://karakorum-analytica-dashboard.onrender.com` ← share this link
+This creates two Render web services from [`render.yaml`](render.yaml):
 
-I cannot complete this step without your Render login. After deploy, open the dashboard URL and click **Run Collection Now**.
+| Service | Name | URL |
+|---------|------|-----|
+| API (FastAPI) | `karakorum-analytica-api` | `https://karakorum-analytica-api.onrender.com` |
+| Dashboard (Streamlit) | `karakorum-analytica-dashboard` | `https://karakorum-analytica-dashboard.onrender.com` |
 
-Alternative: Streamlit Cloud — see **[DEPLOY.md](DEPLOY.md) Option B** (also requires your login at [share.streamlit.io](https://share.streamlit.io)).
+Share the **dashboard URL** with users. The dashboard talks to the API using `API_BASE_URL` (set automatically by the Blueprint).
+
+### Project layout (important for Render)
+
+This is a **Python monorepo at the repo root** — not separate `backend/` and `frontend/` folders, and **not** a Node/Vite/Next.js app.
+
+```
+app/              FastAPI backend (entry: app.main:app)
+dashboard/        Streamlit admin UI (entry: dashboard/streamlit_app.py)
+render.yaml       Render Blueprint — two Python web services
+requirements.txt  Shared Python dependencies
+```
+
+There is no `npm run build`. The dashboard is Streamlit (Python), not React.
+
+### Deploy on Render
+
+1. Sign in at [dashboard.render.com](https://dashboard.render.com) with GitHub
+2. **New → Blueprint** → select repo `Sameedism1995/karakorum-analytica`
+3. Click **Apply** and wait ~5–10 minutes for both services to build
+4. Open the dashboard URL → sidebar should show **Backend connected**
+5. Click **Run Collection Now**
+
+**Manual deploy (if Blueprint fails):**
+
+Create two **Web Services** from the same repo:
+
+**Service 1 — API**
+
+| Setting | Value |
+|---------|--------|
+| Name | `karakorum-analytica-api` |
+| Runtime | Python 3 |
+| Build Command | `pip install -r requirements.txt` |
+| Start Command | `python scripts/init_db.py && uvicorn app.main:app --host 0.0.0.0 --port $PORT` |
+| Health Check Path | `/health` |
+
+**Service 2 — Dashboard**
+
+| Setting | Value |
+|---------|--------|
+| Name | `karakorum-analytica-dashboard` |
+| Runtime | Python 3 |
+| Build Command | `pip install -r requirements.txt` |
+| Start Command | `streamlit run dashboard/streamlit_app.py --server.port $PORT --server.address 0.0.0.0 --server.headless true` |
+
+Set `API_BASE_URL` on the dashboard service to the API service’s public URL (e.g. `https://karakorum-analytica-api.onrender.com`).
+
+### Environment variables — API (`karakorum-analytica-api`)
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `ENVIRONMENT` | Yes (prod) | `production` on Render |
+| `DEBUG` | Yes | `false` on Render |
+| `DATABASE_URL` | Yes | Default Blueprint uses ephemeral SQLite; use `SUPABASE_DB_URL` for persistence |
+| `ALLOWED_ORIGINS` | Yes | Comma-separated CORS origins, e.g. `https://karakorum-analytica-dashboard.onrender.com,http://localhost:8501` |
+| `SUPABASE_URL` | Optional | Supabase project URL |
+| `SUPABASE_SERVICE_ROLE_KEY` | Optional | Supabase service role key (backend only) |
+| `SUPABASE_BUCKET_NAME` | Optional | Supabase storage bucket name |
+| `SUPABASE_DB_URL` | Optional | Postgres connection string (recommended for production) |
+| `SCRAPER_API_KEY` | Optional | Third-party scraper API key (if used) |
+| `RELIEFWEB_APPNAME` | Optional | ReliefWeb approved appname |
+| `ACLED_EMAIL` / `ACLED_API_KEY` | Optional | ACLED credentials |
+| `X_POSTING_ENABLED` | Optional | Keep `false` unless posting to X is intentional |
+
+See [`.env.example`](.env.example) or [`backend/.env.example`](backend/.env.example).
+
+### Environment variables — Dashboard (`karakorum-analytica-dashboard`)
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `API_BASE_URL` | Yes | FastAPI public URL, e.g. `https://karakorum-analytica-api.onrender.com` |
+
+The Blueprint wires this automatically via `fromService`. See [`dashboard/.env.example`](dashboard/.env.example).
+
+> **Note:** This dashboard is Streamlit (Python), not Vite/Next.js. It uses `API_BASE_URL`, not `VITE_API_BASE_URL` or `NEXT_PUBLIC_API_BASE_URL`.
+
+### Test URLs after deployment
+
+Replace with your actual Render URLs if different:
+
+```bash
+# Health check (Render uses this)
+curl https://karakorum-analytica-api.onrender.com/health
+# → {"status":"ok","service":"karakorum-analytica-api"}
+
+# Root
+curl https://karakorum-analytica-api.onrender.com/
+# → {"message":"Karakorum Analytica API is running", ...}
+
+# Dashboard (browser)
+open https://karakorum-analytica-dashboard.onrender.com
+```
+
+### Manual redeploy
+
+Render → select service → **Manual Deploy → Deploy latest commit**
+
+Or push to `main` on GitHub (auto-deploy if enabled).
+
+### Logs
+
+Render → service → **Logs** tab. Check API logs for collection/scheduler errors; check dashboard logs for Streamlit startup issues.
+
+### Common deployment issues
+
+| Problem | Fix |
+|---------|-----|
+| Dashboard shows **Backend not connected** | Confirm `API_BASE_URL` on dashboard matches API URL; wake API by opening `/health`; free tier sleeps after ~15 min idle |
+| API returns 404 | Wrong start command — must be `uvicorn app.main:app --host 0.0.0.0 --port $PORT` from repo root |
+| Data lost after redeploy | Render free SQLite is ephemeral — set `SUPABASE_DB_URL` for persistent Postgres |
+| CORS errors from browser | Add your dashboard origin to `ALLOWED_ORIGINS` on the API service |
+| ReliefWeb / ACLED empty | Set `RELIEFWEB_APPNAME` and/or ACLED credentials on the API service |
+| Build fails | Confirm `PYTHON_VERSION=3.11.9` and `requirements.txt` at repo root |
+
+Full step-by-step: **[DEPLOY.md](DEPLOY.md)**
+
+Alternative: Streamlit Cloud — see **DEPLOY.md Option B** (also requires your login at [share.streamlit.io](https://share.streamlit.io)).
 
 ## ACLED (optional)
 
@@ -173,17 +291,20 @@ X_POSTING_ENABLED=true
 ## Project structure
 
 ```
-app/
+app/              FastAPI backend (uvicorn app.main:app)
   collectors/     GDELT, ReliefWeb, ACLED
   processors/     filter, keywords, matching, scoring, drafts
   services/       orchestration layer
-  api/            FastAPI routes
+  api/            FastAPI routes (/health, /raw-news, …)
   jobs/           APScheduler background collection
   integrations/   Supabase REST client
-dashboard/        Streamlit monitoring UI
+dashboard/        Streamlit monitoring UI (uses API_BASE_URL)
+backend/          .env.example only (API env reference; code is in app/)
 supabase/         PostgreSQL schema SQL
 scripts/          init_db, run_once
 tests/            unit tests
+render.yaml       Render Blueprint (API + dashboard)
+.env.example      Root env template (local dev)
 ```
 
 ## Tests

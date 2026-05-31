@@ -19,6 +19,13 @@ from app.services.incident_service import incident_to_dict, list_incidents, proc
 router = APIRouter()
 settings = get_settings()
 
+API_SERVICE_NAME = "karakorum-analytica-api"
+
+
+@router.get("/health")
+def health() -> dict:
+    return {"status": "ok", "service": API_SERVICE_NAME}
+
 
 @router.get("/")
 def root() -> dict:
@@ -28,9 +35,10 @@ def root() -> dict:
     supabase_api = check_supabase_api() if settings.supabase_configured else None
 
     return {
+        "message": "Karakorum Analytica API is running",
         "app": settings.app_display_name,
         "app_slug": settings.app_name,
-        "env": settings.app_env,
+        "env": settings.runtime_environment,
         "status": "running",
         "x_posting_enabled": settings.x_posting_enabled,
         "acled_configured": settings.acled_configured,

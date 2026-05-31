@@ -41,7 +41,7 @@ REFRESH_OPTIONS = {
     "5 minutes": 300,
 }
 
-LOCAL_API_URL = "http://127.0.0.1:8000"
+LOCAL_API_URL = api_client.resolve_base_url("http://127.0.0.1:8000")
 
 
 def _is_streamlit_cloud() -> bool:
@@ -74,7 +74,7 @@ def _configured_api_url() -> str:
             return str(secret_url).strip().rstrip("/")
     except Exception:
         pass
-    return os.environ.get("API_BASE_URL", "").strip().rstrip("/")
+    return api_client.resolve_base_url()
 
 
 def _api_reachable(url: str) -> bool:

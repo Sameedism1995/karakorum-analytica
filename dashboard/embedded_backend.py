@@ -111,7 +111,7 @@ def check_backend(base_url: str = "") -> dict[str, Any]:
             "data": {
                 "app": settings.app_display_name,
                 "app_slug": settings.app_name,
-                "env": "streamlit-embedded",
+                "env": settings.runtime_environment,
                 "status": "running",
                 "x_posting_enabled": settings.x_posting_enabled,
                 "acled_configured": settings.acled_configured,
