@@ -10,15 +10,14 @@ import streamlit as st
 
 from app.config import get_settings
 from app.database import SessionLocal, check_database_connection, init_db, reconfigure_engine
-from app.services.collection_service import collect_all, get_recent_raw_news, raw_news_to_dict
+from app.services.collection_service import get_recent_raw_news, raw_news_to_dict
 from app.services.draft_service import (
     approve_draft as approve_draft_record,
     draft_to_dict,
-    generate_drafts_for_incidents,
     list_drafts,
     reject_draft as reject_draft_record,
 )
-from app.services.incident_service import incident_to_dict, list_incidents, process_incidents
+from app.services.incident_service import incident_to_dict, list_incidents
 
 CLOUD_SQLITE = "sqlite:////tmp/karakorum-analytica.db"
 LOCAL_SQLITE = "sqlite:///./local.db"
@@ -135,23 +134,22 @@ def check_backend(base_url: str = "") -> dict[str, Any]:
 
 
 def run_collection(base_url: str = "") -> dict[str, Any]:
+    from app.services.collection_job import start_collection_job
+
     try:
-        db = _session()
+        payload = start_collection_job()
+        return {"ok": True, "data": payload, "error": None, "async": True}
     except Exception as exc:
         return {"ok": False, "data": None, "error": str(exc)}
+
+
+def get_collection_status(base_url: str = "") -> dict[str, Any]:
+    from app.services.collection_job import get_collection_job_status
+
     try:
-        collection = collect_all(db)
-        incidents = process_incidents(db)
-        drafts = generate_drafts_for_incidents(db)
-        return {
-            "ok": True,
-            "data": {"collection": collection, "incidents": incidents, "drafts": drafts},
-            "error": None,
-        }
+        return {"ok": True, "data": get_collection_job_status(), "error": None}
     except Exception as exc:
         return {"ok": False, "data": None, "error": str(exc)}
-    finally:
-        db.close()
 
 
 def get_raw_news(base_url: str = "", limit: int = 500) -> list[dict[str, Any]]:

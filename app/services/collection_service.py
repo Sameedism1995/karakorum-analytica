@@ -1,5 +1,6 @@
 import hashlib
 import json
+from collections.abc import Callable
 from datetime import datetime, timezone
 from typing import Any
 
@@ -11,6 +12,8 @@ from app.collectors.gdelt_collector import collect_gdelt
 from app.collectors.reliefweb_collector import collect_reliefweb
 from app.models.raw_news import RawNews
 from app.processors.pakistan_filter import filter_pakistan_item, has_security_keyword
+
+ProgressCallback = Callable[[str, int, str], None]
 
 
 def _content_hash(title: str | None, url: str | None, source_name: str) -> str:
@@ -54,13 +57,34 @@ def save_raw_news(db: Session, item: dict) -> RawNews | None:
     return record
 
 
-def collect_all(db: Session) -> dict[str, int]:
+def collect_all(
+    db: Session,
+    on_progress: ProgressCallback | None = None,
+) -> dict[str, int]:
     """Run all collectors, filter, and save raw news."""
-    all_items: list[dict] = []
-    all_items.extend(collect_gdelt())
-    all_items.extend(collect_reliefweb())
-    all_items.extend(collect_acled())
 
+    def report(message: str, progress: int, step: str) -> None:
+        if on_progress:
+            on_progress(message, progress, step)
+
+    all_items: list[dict] = []
+
+    report("Fetching GDELT security news…", 10, "gdelt")
+    gdelt_items = collect_gdelt()
+    all_items.extend(gdelt_items)
+    report(f"GDELT returned {len(gdelt_items)} articles", 22, "gdelt")
+
+    report("Fetching ReliefWeb reports…", 28, "reliefweb")
+    reliefweb_items = collect_reliefweb()
+    all_items.extend(reliefweb_items)
+    report(f"ReliefWeb returned {len(reliefweb_items)} reports", 38, "reliefweb")
+
+    report("Fetching ACLED events…", 42, "acled")
+    acled_items = collect_acled()
+    all_items.extend(acled_items)
+    report(f"ACLED returned {len(acled_items)} events", 50, "acled")
+
+    report(f"Filtering and saving {len(all_items)} items…", 55, "save")
     saved = 0
     skipped = 0
     filtered_out = 0
@@ -81,6 +105,11 @@ def collect_all(db: Session) -> dict[str, int]:
         else:
             skipped += 1
 
+    report(
+        f"Saved {saved} new articles ({skipped} duplicates, {filtered_out} filtered out)",
+        68,
+        "save",
+    )
     logger.info(
         f"Collection complete: saved={saved}, duplicates={skipped}, filtered_out={filtered_out}"
     )

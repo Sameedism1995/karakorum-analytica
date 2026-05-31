@@ -326,6 +326,21 @@ html, body, [class*="css"] {{
     margin-top: 0.75rem;
 }}
 
+.collection-log {{
+    background: rgba(11, 22, 35, 0.45);
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    border-radius: 8px;
+    padding: 0.65rem 0.75rem;
+    margin-top: 0.5rem;
+    max-height: 220px;
+    overflow-y: auto;
+    font-size: 0.78rem;
+    line-height: 1.45;
+    color: {STEEL_MIST};
+    font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+    white-space: pre-wrap;
+}}
+
 .chart-card {{
     background: #ffffff;
     border: 1px solid {SLATE_SOFT};

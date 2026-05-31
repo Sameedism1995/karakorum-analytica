@@ -17,6 +17,7 @@ if str(ROOT) not in sys.path:
 
 from dashboard import api_client, embedded_backend
 from dashboard.branding import BRAND_NAME, LOGO_PATH, render_sidebar_logo
+from dashboard.collection_ui import handle_run_collection_click, render_collection_progress
 from dashboard.styles import CUSTOM_CSS
 from dashboard.ui_components import (
     compute_overview_metrics,
@@ -154,29 +155,11 @@ def main() -> None:
         refresh_seconds = REFRESH_OPTIONS[refresh_label]
 
         if st.button("Run Collection Now", type="primary", use_container_width=True):
-            with st.spinner("Starting collection…"):
-                result = backend.run_collection(base_url)
-            if result["ok"]:
-                data = result["data"] or {}
-                if result.get("async") or data.get("status") in {"started", "running"}:
-                    st.info(
-                        "Collection is running on the server. "
-                        "Wait 1–2 minutes, then refresh or enable auto-refresh."
-                    )
-                    if hasattr(backend, "get_collection_status"):
-                        status = backend.get_collection_status(base_url)
-                        if status.get("ok") and (status.get("data") or {}).get("status") == "completed":
-                            st.rerun()
-                else:
-                    collection = data.get("collection", {})
-                    st.success(
-                        f"Collection complete — saved {collection.get('saved', 0)}, "
-                        f"incidents {data.get('incidents', {})}, "
-                        f"drafts {data.get('drafts', {})}."
-                    )
-                    st.rerun()
-            else:
-                st.error(result.get("error") or "Collection failed.")
+            if handle_run_collection_click(backend, base_url):
+                st.rerun()
+
+        if render_collection_progress(backend, base_url):
+            st.rerun()
 
         health = backend.check_backend(base_url)
         connected = health.get("ok", False)
