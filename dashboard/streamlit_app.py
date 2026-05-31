@@ -44,12 +44,18 @@ LOCAL_API_URL = "http://127.0.0.1:8000"
 
 
 def _is_streamlit_cloud() -> bool:
+    """Detect Streamlit Community Cloud."""
     env = os.environ
     if env.get("STREAMLIT_SERVER_ENV", "").lower() == "cloud":
         return True
     if env.get("STREAMLIT_RUNTIME_ENVIRONMENT", "").lower() == "cloud":
         return True
+    if env.get("STREAMLIT_CLOUD", "").lower() in {"1", "true", "yes"}:
+        return True
     if ".streamlit.app" in env.get("HOSTNAME", ""):
+        return True
+    # Streamlit Cloud runs from /mount/src/<repo>
+    if str(ROOT).startswith("/mount/src") or "/mount/src/" in os.getcwd():
         return True
     try:
         host = st.context.headers.get("Host", "")
@@ -70,25 +76,34 @@ def _configured_api_url() -> str:
     return os.environ.get("API_BASE_URL", "").strip().rstrip("/")
 
 
+def _api_reachable(url: str) -> bool:
+    if not url:
+        return False
+    return bool(api_client.check_backend(url).get("ok"))
+
+
 def _choose_backend() -> tuple[ModuleType, str, bool]:
     """Return backend module, display label, and whether mode is embedded."""
     is_cloud = _is_streamlit_cloud()
     api_url = _configured_api_url()
 
+    if api_url and _api_reachable(api_url):
+        return api_client, api_url, False
+
     if is_cloud:
-        if api_url:
-            health = api_client.check_backend(api_url)
-            if health.get("ok"):
-                return api_client, api_url, False
-            if health.get("error") == "not_found" or "404" in str(health.get("error", "")):
-                return embedded_backend, "embedded (Render API not deployed)", True
         return embedded_backend, "embedded (Streamlit Cloud)", True
 
-    api_url = api_url or LOCAL_API_URL
-    health = api_client.check_backend(api_url)
-    if health.get("ok"):
-        return api_client, api_url, False
-    return api_client, api_url, False
+    if api_url and api_url != LOCAL_API_URL:
+        return embedded_backend, "embedded (remote API unavailable)", True
+
+    if _api_reachable(LOCAL_API_URL):
+        return api_client, LOCAL_API_URL, False
+
+    embedded_health = embedded_backend.check_backend("")
+    if embedded_health.get("ok"):
+        return embedded_backend, "embedded (local API offline)", True
+
+    return embedded_backend, "embedded", True
 
 
 def _now_str() -> str:
@@ -163,8 +178,11 @@ def main() -> None:
                 '<span class="status-pill status-disconnected">Backend not connected</span>',
                 unsafe_allow_html=True,
             )
-            if health.get("error") and health.get("error") != "not_found":
-                st.caption(health.get("detail") or health.get("error"))
+            err = health.get("detail") or health.get("error")
+            if err and err != "not_found":
+                st.caption(err)
+            if embedded:
+                st.caption("Try rebooting the app from Streamlit Cloud manage menu.")
         st.markdown("</div>", unsafe_allow_html=True)
 
         if _is_streamlit_cloud() and not embedded:

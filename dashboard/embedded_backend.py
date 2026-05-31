@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
 from typing import Any
 
 import streamlit as st
@@ -19,6 +20,15 @@ from app.services.draft_service import (
 )
 from app.services.incident_service import incident_to_dict, list_incidents, process_incidents
 
+CLOUD_SQLITE = "sqlite:////tmp/karakorum-analytica.db"
+LOCAL_SQLITE = "sqlite:///./local.db"
+
+
+def _on_streamlit_cloud() -> bool:
+    cwd = os.getcwd()
+    root = str(Path(__file__).resolve().parent.parent)
+    return "/mount/src" in cwd or root.startswith("/mount/src")
+
 
 def _apply_secrets_to_env() -> None:
     """Load optional collector credentials from Streamlit secrets."""
@@ -27,11 +37,6 @@ def _apply_secrets_to_env() -> None:
             "ACLED_EMAIL",
             "ACLED_API_KEY",
             "RELIEFWEB_APPNAME",
-            "SUPABASE_URL",
-            "SUPABASE_SERVICE_ROLE_KEY",
-            "SUPABASE_DB_URL",
-            "SUPABASE_DB_PASSWORD",
-            "DATABASE_URL",
         )
         for key in secret_keys:
             if key in st.secrets:
@@ -41,56 +46,98 @@ def _apply_secrets_to_env() -> None:
     get_settings.cache_clear()
 
 
-@st.cache_resource
-def _bootstrap_database() -> bool:
-    _apply_secrets_to_env()
-    if not os.environ.get("DATABASE_URL"):
-        os.environ["DATABASE_URL"] = "sqlite:////tmp/karakorum-analytica.db"
-        get_settings.cache_clear()
+def _seed_sources() -> None:
+    from app.models.source import Source
+    from app.database import SessionLocal as SL
+
+    db = SL()
+    try:
+        if db.query(Source).count():
+            return
+        from scripts.init_db import DEFAULT_SOURCES
+
+        for payload in DEFAULT_SOURCES:
+            db.add(Source(**payload))
+        db.commit()
+    finally:
+        db.close()
+
+
+def _init_with_url(database_url: str) -> dict[str, Any]:
+    os.environ["DATABASE_URL"] = database_url
+    get_settings.cache_clear()
     reconfigure_engine()
     init_db()
-    from scripts.init_db import main as seed_sources
+    _seed_sources()
+    return check_database_connection()
 
-    seed_sources()
-    return True
+
+@st.cache_resource
+def _bootstrap_database() -> dict[str, Any]:
+    _apply_secrets_to_env()
+
+    if _on_streamlit_cloud():
+        return _init_with_url(CLOUD_SQLITE)
+
+    if os.environ.get("DATABASE_URL"):
+        status = _init_with_url(os.environ["DATABASE_URL"])
+        if status.get("ok"):
+            return status
+
+    for url in (LOCAL_SQLITE, CLOUD_SQLITE):
+        status = _init_with_url(url)
+        if status.get("ok"):
+            return status
+
+    return {"ok": False, "error": "Could not initialize database"}
 
 
 def _session():
-    _bootstrap_database()
+    status = _bootstrap_database()
+    if not status.get("ok"):
+        raise RuntimeError(status.get("error") or "Database not ready")
     return SessionLocal()
 
 
 def check_backend(base_url: str = "") -> dict[str, Any]:
-    _bootstrap_database()
-    settings = get_settings()
-    db_status = check_database_connection()
-    return {
-        "ok": db_status.get("ok", False),
-        "data": {
-            "app": settings.app_name,
-            "env": "streamlit-embedded",
-            "status": "running",
-            "x_posting_enabled": settings.x_posting_enabled,
-            "acled_configured": settings.acled_configured,
-            "database": {
-                "backend": settings.database_backend,
-                "using_supabase": settings.using_supabase,
-                "connected": db_status.get("ok", False),
-                "error": db_status.get("error"),
+    try:
+        db_status = _bootstrap_database()
+        if not db_status.get("ok"):
+            return {"ok": False, "data": None, "error": db_status.get("error", "Database failed")}
+
+        settings = get_settings()
+        return {
+            "ok": True,
+            "data": {
+                "app": settings.app_name,
+                "env": "streamlit-embedded",
+                "status": "running",
+                "x_posting_enabled": settings.x_posting_enabled,
+                "acled_configured": settings.acled_configured,
+                "database": {
+                    "backend": settings.database_backend,
+                    "using_supabase": settings.using_supabase,
+                    "connected": True,
+                    "error": None,
+                },
+                "supabase": {
+                    "configured": settings.supabase_configured,
+                    "api_ok": None,
+                    "api_error": None,
+                },
+                "mode": "embedded",
             },
-            "supabase": {
-                "configured": settings.supabase_configured,
-                "api_ok": None,
-                "api_error": None,
-            },
-            "mode": "embedded",
-        },
-        "error": db_status.get("error"),
-    }
+            "error": None,
+        }
+    except Exception as exc:
+        return {"ok": False, "data": None, "error": str(exc)}
 
 
 def run_collection(base_url: str = "") -> dict[str, Any]:
-    db = _session()
+    try:
+        db = _session()
+    except Exception as exc:
+        return {"ok": False, "data": None, "error": str(exc)}
     try:
         collection = collect_all(db)
         incidents = process_incidents(db)
@@ -107,7 +154,10 @@ def run_collection(base_url: str = "") -> dict[str, Any]:
 
 
 def get_raw_news(base_url: str = "", limit: int = 500) -> list[dict[str, Any]]:
-    db = _session()
+    try:
+        db = _session()
+    except Exception:
+        return []
     try:
         return [raw_news_to_dict(r) for r in get_recent_raw_news(db, limit=limit)]
     finally:
@@ -115,7 +165,10 @@ def get_raw_news(base_url: str = "", limit: int = 500) -> list[dict[str, Any]]:
 
 
 def get_incidents(base_url: str = "", limit: int = 500) -> list[dict[str, Any]]:
-    db = _session()
+    try:
+        db = _session()
+    except Exception:
+        return []
     try:
         return [incident_to_dict(r) for r in list_incidents(db, limit=limit)]
     finally:
@@ -123,7 +176,10 @@ def get_incidents(base_url: str = "", limit: int = 500) -> list[dict[str, Any]]:
 
 
 def get_drafts(base_url: str = "", limit: int = 500) -> list[dict[str, Any]]:
-    db = _session()
+    try:
+        db = _session()
+    except Exception:
+        return []
     try:
         return [draft_to_dict(r) for r in list_drafts(db, limit=limit)]
     finally:
@@ -131,7 +187,10 @@ def get_drafts(base_url: str = "", limit: int = 500) -> list[dict[str, Any]]:
 
 
 def approve_draft(draft_id: int, base_url: str = "") -> dict[str, Any]:
-    db = _session()
+    try:
+        db = _session()
+    except Exception as exc:
+        return {"ok": False, "data": None, "error": str(exc)}
     try:
         draft = approve_draft_record(db, draft_id)
         if not draft:
@@ -142,7 +201,10 @@ def approve_draft(draft_id: int, base_url: str = "") -> dict[str, Any]:
 
 
 def reject_draft(draft_id: int, base_url: str = "") -> dict[str, Any]:
-    db = _session()
+    try:
+        db = _session()
+    except Exception as exc:
+        return {"ok": False, "data": None, "error": str(exc)}
     try:
         draft = reject_draft_record(db, draft_id)
         if not draft:
@@ -156,7 +218,10 @@ def post_draft(draft_id: int, base_url: str = "") -> dict[str, Any]:
     from app.publishers.x_publisher import post_draft_to_x
     from app.services.draft_service import get_draft
 
-    db = _session()
+    try:
+        db = _session()
+    except Exception as exc:
+        return {"ok": False, "data": None, "error": str(exc)}
     try:
         draft = get_draft(db, draft_id)
         if not draft:
