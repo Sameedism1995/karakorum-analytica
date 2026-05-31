@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.database import get_db
+from app.integrations.supabase_client import check_supabase_api, check_supabase_storage
 from app.publishers.x_publisher import post_draft_to_x
 from app.services.collection_service import collect_all, get_recent_raw_news, raw_news_to_dict
 from app.services.draft_service import (
@@ -21,12 +22,40 @@ settings = get_settings()
 
 @router.get("/")
 def root() -> dict:
+    from app.database import check_database_connection
+
+    db_status = check_database_connection()
+    supabase_api = check_supabase_api() if settings.supabase_configured else None
+
     return {
         "app": settings.app_name,
         "env": settings.app_env,
         "status": "running",
         "x_posting_enabled": settings.x_posting_enabled,
         "acled_configured": settings.acled_configured,
+        "database": {
+            "backend": settings.database_backend,
+            "using_supabase": settings.using_supabase,
+            "connected": db_status.get("ok", False),
+            "error": db_status.get("error"),
+        },
+        "supabase": {
+            "configured": settings.supabase_configured,
+            "api_ok": supabase_api.get("ok") if supabase_api else None,
+            "api_error": supabase_api.get("error") if supabase_api else None,
+        },
+    }
+
+
+@router.get("/health/database")
+def database_health() -> dict:
+    from app.database import check_database_connection
+
+    db_status = check_database_connection()
+    supabase_storage = check_supabase_storage() if settings.supabase_configured else None
+    return {
+        "database": db_status,
+        "supabase_storage": supabase_storage,
     }
 
 

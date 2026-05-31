@@ -35,6 +35,41 @@ cp .env.example .env
 python scripts/init_db.py
 ```
 
+## Supabase (persistent storage)
+
+By default data is stored in local SQLite (`local.db`). For production or shared deploys, use **Supabase PostgreSQL** so raw news, incidents, and drafts persist in the cloud.
+
+### Setup
+
+1. Create a project at [supabase.com](https://supabase.com)
+2. Go to **Project Settings → Database** and copy the **Connection string** (URI)
+3. Go to **Project Settings → API** and copy:
+   - **Project URL** → `SUPABASE_URL`
+   - **service_role** key → `SUPABASE_SERVICE_ROLE_KEY` (backend only — never expose in frontend)
+4. Add to `.env`:
+
+```
+SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+SUPABASE_DB_URL=postgresql://postgres:YOUR_PASSWORD@db.YOUR_PROJECT_REF.supabase.co:5432/postgres
+```
+
+5. Initialize tables:
+
+```bash
+python scripts/init_db.py
+```
+
+Or run `supabase/schema.sql` in the Supabase SQL Editor.
+
+### Verify
+
+- `GET /` shows `"database": {"backend": "supabase", "connected": true}`
+- `GET /health/database` returns row counts via Supabase REST
+- Dashboard **System Status** tab shows Supabase connected
+
+Without Supabase vars, the app continues using SQLite locally.
+
 ## Run pipeline once
 
 ```bash
@@ -139,7 +174,9 @@ app/
   services/       orchestration layer
   api/            FastAPI routes
   jobs/           APScheduler background collection
+  integrations/   Supabase REST client
 dashboard/        Streamlit monitoring UI
+supabase/         PostgreSQL schema SQL
 scripts/          init_db, run_once
 tests/            unit tests
 ```

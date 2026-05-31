@@ -593,6 +593,8 @@ def render_system_status(
             <div class="item-meta"><strong>API URL:</strong> {base_url}</div>
             <div class="item-meta"><strong>App:</strong> {data.get('app', '—')}</div>
             <div class="item-meta"><strong>Environment:</strong> {data.get('env', '—')}</div>
+            <div class="item-meta"><strong>Database:</strong> {(data.get('database') or {}).get('backend', '—')} · {'connected' if (data.get('database') or {}).get('connected') else 'disconnected'}</div>
+            <div class="item-meta"><strong>Supabase:</strong> {'active' if (data.get('database') or {}).get('using_supabase') else 'not configured'}</div>
             <div class="item-meta"><strong>Last refresh:</strong> {last_refresh}</div>
         </div>
         """,
@@ -616,6 +618,31 @@ def render_system_status(
     else:
         st.markdown(
             '<div class="info-box"><strong>X posting is disabled.</strong> Set <code>X_POSTING_ENABLED=true</code> in .env to enable later.</div>',
+            unsafe_allow_html=True,
+        )
+
+    db_info = data.get("database") or {}
+    supabase_info = data.get("supabase") or {}
+    if db_info.get("using_supabase"):
+        if db_info.get("connected"):
+            st.markdown(
+                '<div class="info-box"><strong>Supabase PostgreSQL connected.</strong> Raw news, incidents, and drafts are persisted in your Supabase project.</div>',
+                unsafe_allow_html=True,
+            )
+        else:
+            st.markdown(
+                f'<div class="error-box"><strong>Supabase database error:</strong> {db_info.get("error", "Connection failed")}</div>',
+                unsafe_allow_html=True,
+            )
+    elif connected:
+        st.markdown(
+            '<div class="info-box"><strong>Using local SQLite.</strong> Set <code>SUPABASE_DB_URL</code> in .env to persist data in Supabase.</div>',
+            unsafe_allow_html=True,
+        )
+
+    if supabase_info.get("configured") and supabase_info.get("api_ok") is False:
+        st.markdown(
+            f'<div class="warn-box"><strong>Supabase REST API:</strong> {supabase_info.get("api_error", "Unavailable")}</div>',
             unsafe_allow_html=True,
         )
 

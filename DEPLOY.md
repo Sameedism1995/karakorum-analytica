@@ -32,6 +32,7 @@ gh repo create pakistan-osint-news-mvp --public --source=. --push
 6. Optional: in Render **Environment**, add:
    - `RELIEFWEB_APPNAME` — for ReliefWeb data
    - `ACLED_EMAIL` / `ACLED_API_KEY` — for ACLED data
+   - `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_DB_URL` — for persistent storage (recommended over SQLite)
 
 Free tier sleeps after inactivity; the first request may take ~30s to wake up.
 

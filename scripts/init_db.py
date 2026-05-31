@@ -7,7 +7,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from app.config import SOURCE_WEIGHT
+from app.config import SOURCE_WEIGHT, get_settings
 from app.database import SessionLocal, init_db
 from app.models.source import Source
 
@@ -34,6 +34,11 @@ DEFAULT_SOURCES = [
 
 
 def main() -> None:
+    settings = get_settings()
+    print(f"Database backend: {settings.database_backend}")
+    if settings.using_supabase:
+        print(f"Supabase project: {settings.supabase_project_ref or 'configured'}")
+
     init_db()
     db = SessionLocal()
     try:

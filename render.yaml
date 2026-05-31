@@ -17,6 +17,8 @@ services:
         value: "false"
       - key: PYTHON_VERSION
         value: "3.11.9"
+      # Use Supabase Postgres in production (set in Render dashboard):
+      # SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_DB_URL
       - key: DATABASE_URL
         value: sqlite:///./local.db
       # Optional — set in Render dashboard (never commit real values):

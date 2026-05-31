@@ -1,15 +1,32 @@
 from collections.abc import Generator
 
-from sqlalchemy import create_engine
+from loguru import logger
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.config import get_settings
 
 settings = get_settings()
-connect_args = {"check_same_thread": False} if settings.database_url.startswith("sqlite") else {}
+db_url = settings.effective_database_url
 
-engine = create_engine(settings.database_url, connect_args=connect_args, pool_pre_ping=True)
+connect_args: dict = {}
+engine_kwargs: dict = {"pool_pre_ping": True}
+
+if db_url.startswith("sqlite"):
+    connect_args = {"check_same_thread": False}
+elif db_url.startswith("postgresql"):
+    engine_kwargs.update(
+        {
+            "pool_size": 5,
+            "max_overflow": 10,
+            "pool_recycle": 300,
+        }
+    )
+
+engine = create_engine(db_url, connect_args=connect_args, **engine_kwargs)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+logger.info(f"Database backend: {settings.database_backend}")
 
 
 def get_db() -> Generator[Session, None, None]:
@@ -18,6 +35,25 @@ def get_db() -> Generator[Session, None, None]:
         yield db
     finally:
         db.close()
+
+
+def check_database_connection() -> dict:
+    """Ping the configured database."""
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        return {
+            "ok": True,
+            "backend": settings.database_backend,
+            "using_supabase": settings.using_supabase,
+        }
+    except Exception as exc:
+        return {
+            "ok": False,
+            "backend": settings.database_backend,
+            "using_supabase": settings.using_supabase,
+            "error": str(exc),
+        }
 
 
 def init_db() -> None:

@@ -1,4 +1,5 @@
 from functools import lru_cache
+from urllib.parse import quote_plus
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -12,6 +13,12 @@ class Settings(BaseSettings):
 
     database_url: str = "sqlite:///./local.db"
     collection_interval_minutes: int = 15
+
+    # Supabase — set SUPABASE_DB_URL (recommended) or URL + DB password
+    supabase_url: str = ""
+    supabase_service_role_key: str = ""
+    supabase_db_url: str = ""
+    supabase_db_password: str = ""
 
     reliefweb_appname: str = ""
 
@@ -28,6 +35,61 @@ class Settings(BaseSettings):
     @property
     def acled_configured(self) -> bool:
         return bool(self.acled_email and self.acled_api_key)
+
+    @property
+    def supabase_project_ref(self) -> str:
+        if not self.supabase_url:
+            return ""
+        host = self.supabase_url.replace("https://", "").replace("http://", "").strip("/")
+        return host.split(".")[0]
+
+    @property
+    def supabase_configured(self) -> bool:
+        return bool(self.supabase_url and self.supabase_service_role_key)
+
+    @property
+    def using_supabase(self) -> bool:
+        url = self.effective_database_url.lower()
+        return "supabase.co" in url or (
+            url.startswith("postgresql") and self.supabase_configured
+        )
+
+    @property
+    def database_backend(self) -> str:
+        url = self.effective_database_url.lower()
+        if "supabase.co" in url:
+            return "supabase"
+        if url.startswith("postgresql"):
+            return "postgresql"
+        return "sqlite"
+
+    @property
+    def effective_database_url(self) -> str:
+        """Resolve DB URL: explicit Supabase/Postgres URL, built URL, or SQLite fallback."""
+        if self.supabase_db_url.strip():
+            return self._normalize_postgres_url(self.supabase_db_url.strip())
+
+        if self.database_url.strip() and not self.database_url.startswith("sqlite"):
+            return self._normalize_postgres_url(self.database_url.strip())
+
+        if self.supabase_url and self.supabase_db_password:
+            ref = self.supabase_project_ref
+            if ref:
+                password = quote_plus(self.supabase_db_password)
+                return (
+                    f"postgresql+psycopg://postgres:{password}"
+                    f"@db.{ref}.supabase.co:5432/postgres"
+                )
+
+        return self.database_url
+
+    @staticmethod
+    def _normalize_postgres_url(url: str) -> str:
+        if url.startswith("postgres://"):
+            return url.replace("postgres://", "postgresql+psycopg://", 1)
+        if url.startswith("postgresql://") and "+psycopg" not in url:
+            return url.replace("postgresql://", "postgresql+psycopg://", 1)
+        return url
 
 
 # Equal weight per API source (Phase 1)
