@@ -1,0 +1,23 @@
+# Deploy the FastAPI backend on Render (free tier).
+# Dashboard goes on Streamlit Community Cloud — see DEPLOY.md
+services:
+  - type: web
+    name: pakistan-osint-api
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python scripts/init_db.py && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: DEBUG
+        value: "false"
+      - key: X_POSTING_ENABLED
+        value: "false"
+      - key: PYTHON_VERSION
+        value: "3.11.9"
+      - key: DATABASE_URL
+        value: sqlite:///./local.db
+      # Optional — set in Render dashboard (never commit real values):
+      # RELIEFWEB_APPNAME, ACLED_EMAIL, ACLED_API_KEY

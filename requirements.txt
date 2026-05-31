@@ -1,0 +1,16 @@
+fastapi
+uvicorn[standard]
+pydantic
+pydantic-settings
+python-dotenv
+sqlalchemy
+httpx
+apscheduler
+loguru
+tweepy
+pytest
+streamlit
+requests
+pandas
+plotly
+streamlit-autorefresh
