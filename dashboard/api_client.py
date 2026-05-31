@@ -1,4 +1,4 @@
-"""HTTP client for the KarakorumAnalytica FastAPI backend."""
+"""HTTP client for the Karakorum Analytica FastAPI backend."""
 
 from __future__ import annotations
 

@@ -1,4 +1,4 @@
-"""Custom CSS for the KarakorumAnalytica dashboard."""
+"""Custom CSS for the Karakorum Analytica dashboard."""
 
 from dashboard.theme import (
     ARCTIC_WHITE,
@@ -49,18 +49,61 @@ html, body, [class*="css"] {{
     border-left: 4px solid {SIGNAL_CRIMSON};
 }}
 
-.main-header h1 {{
+.main-header-inner {{
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+}}
+
+.main-header-logo-wrap {{
+    background: #ffffff;
+    border-radius: 10px;
+    padding: 0.45rem 0.65rem;
+    flex-shrink: 0;
+    box-shadow: 0 2px 8px rgba(11, 22, 35, 0.12);
+}}
+
+.main-header-logo {{
+    height: 64px;
+    width: auto;
+    display: block;
+}}
+
+.main-header-text {{
+    min-width: 0;
+}}
+
+.main-header-title {{
     font-size: 1.65rem;
     font-weight: 700;
     margin: 0 0 0.35rem 0;
-    letter-spacing: 0.12em;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
+    color: {ARCTIC_WHITE};
 }}
 
-.main-header p {{
+.main-header-tagline {{
     margin: 0;
     color: {STEEL_MIST};
     font-size: 0.92rem;
+    line-height: 1.5;
+}}
+
+.sidebar-logo-wrap {{
+    background: #ffffff;
+    border-radius: 10px;
+    padding: 0.65rem 0.75rem;
+    margin-bottom: 1rem;
+    text-align: center;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}}
+
+.sidebar-logo {{
+    width: 100%;
+    max-width: 220px;
+    height: auto;
+    display: block;
+    margin: 0 auto;
 }}
 
 .kpi-card {{

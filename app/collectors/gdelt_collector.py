@@ -44,7 +44,7 @@ def _wait_for_gdelt_rate_limit() -> None:
 
 def _fetch_gdelt(params: dict[str, Any]) -> dict[str, Any]:
     global _last_gdelt_request_at
-    headers = {"User-Agent": "KarakorumAnalytica/1.0 (public research)"}
+    headers = {"User-Agent": "Karakorum Analytica/1.0 (public research)"}
 
     for attempt in range(len(GDELT_429_BACKOFF_SECONDS) + 1):
         _wait_for_gdelt_rate_limit()

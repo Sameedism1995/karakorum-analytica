@@ -28,7 +28,8 @@ def root() -> dict:
     supabase_api = check_supabase_api() if settings.supabase_configured else None
 
     return {
-        "app": settings.app_name,
+        "app": settings.app_display_name,
+        "app_slug": settings.app_name,
         "env": settings.app_env,
         "status": "running",
         "x_posting_enabled": settings.x_posting_enabled,

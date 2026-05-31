@@ -1,4 +1,4 @@
--- KarakorumAnalytica — Supabase / PostgreSQL schema
+-- Karakorum Analytica — Supabase / PostgreSQL schema
 -- Run in Supabase SQL Editor, or let `python scripts/init_db.py` create tables via SQLAlchemy.
 
 CREATE TABLE IF NOT EXISTS sources (

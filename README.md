@@ -1,4 +1,4 @@
-# KarakorumAnalytica
+# Karakorum Analytica
 
 Phase 1 backend for collecting public Pakistan-focused crime, conflict, and security news from open APIs, grouping incidents, scoring source confidence, and generating neutral X/Twitter draft posts for human review.
 

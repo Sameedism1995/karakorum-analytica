@@ -1,4 +1,4 @@
-"""Reusable Streamlit UI components for KarakorumAnalytica."""
+"""Reusable Streamlit UI components for Karakorum Analytica."""
 
 from __future__ import annotations
 
@@ -11,6 +11,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from app.config import TARGET_KEYWORDS
+from dashboard.branding import BRAND_NAME, LOGO_ALT, logo_data_uri
 from dashboard.theme import (
     CHART_SEQUENCE,
     MIDNIGHT_NAVY,
@@ -56,11 +57,21 @@ def inject_styles(css: str) -> None:
 
 
 def render_header() -> None:
+    logo_uri = logo_data_uri()
     st.markdown(
-        """
+        f"""
         <div class="main-header">
-            <h1>Karakorum Analytica</h1>
-            <p>Pakistan security intelligence · GDELT, ReliefWeb & ACLED · Human review only</p>
+            <div class="main-header-inner">
+                <div class="main-header-logo-wrap">
+                    <img src="{logo_uri}" alt="{LOGO_ALT}" class="main-header-logo" />
+                </div>
+                <div class="main-header-text">
+                    <h1 class="main-header-title">{BRAND_NAME}</h1>
+                    <p class="main-header-tagline">
+                        Security intelligence · GDELT, ReliefWeb &amp; ACLED · Human review only
+                    </p>
+                </div>
+            </div>
         </div>
         """,
         unsafe_allow_html=True,

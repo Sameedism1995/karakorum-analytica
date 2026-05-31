@@ -1,4 +1,4 @@
-"""Run KarakorumAnalytica pipeline in-process (for Streamlit Cloud without Render API)."""
+"""Run Karakorum Analytica pipeline in-process (for Streamlit Cloud without Render API)."""
 
 from __future__ import annotations
 
@@ -109,7 +109,8 @@ def check_backend(base_url: str = "") -> dict[str, Any]:
         return {
             "ok": True,
             "data": {
-                "app": settings.app_name,
+                "app": settings.app_display_name,
+                "app_slug": settings.app_name,
                 "env": "streamlit-embedded",
                 "status": "running",
                 "x_posting_enabled": settings.x_posting_enabled,

@@ -1,4 +1,4 @@
-"""KarakorumAnalytica — Streamlit monitoring dashboard."""
+"""Karakorum Analytica — Streamlit monitoring dashboard."""
 
 from __future__ import annotations
 
@@ -16,6 +16,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from dashboard import api_client, embedded_backend
+from dashboard.branding import BRAND_NAME, LOGO_PATH, inject_brand_title, render_sidebar_logo
 from dashboard.styles import CUSTOM_CSS
 from dashboard.ui_components import (
     compute_overview_metrics,
@@ -112,12 +113,16 @@ def _now_str() -> str:
 
 def main() -> None:
     st.set_page_config(
-        page_title="KarakorumAnalytica",
-        page_icon="📡",
+        page_title=BRAND_NAME,
+        page_icon=str(LOGO_PATH),
         layout="wide",
         initial_sidebar_state="expanded",
+        menu_items={
+            "About": f"# {BRAND_NAME}\nPakistan-focused security intelligence dashboard.",
+        },
     )
 
+    inject_brand_title()
     inject_styles(CUSTOM_CSS)
     render_header()
 
@@ -125,6 +130,7 @@ def main() -> None:
     base_url = "" if embedded else (_configured_api_url() or LOCAL_API_URL)
 
     with st.sidebar:
+        render_sidebar_logo()
         st.markdown("### Controls")
 
         if embedded:

@@ -13,7 +13,7 @@ settings = get_settings()
 logger.remove()
 logger.add(sys.stderr, level="DEBUG" if settings.debug else "INFO")
 
-app = FastAPI(title=settings.app_name, debug=settings.debug)
+app = FastAPI(title=settings.app_display_name, debug=settings.debug)
 app.include_router(router)
 
 
