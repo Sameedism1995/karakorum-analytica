@@ -27,17 +27,6 @@ def logo_data_uri() -> str:
     return f"data:{_logo_mime(raw)};base64,{encoded}"
 
 
-def inject_brand_title() -> None:
-    """Force browser tab title (Streamlit Cloud may override page_title)."""
-    import streamlit.components.v1 as components
-
-    components.html(
-        f"<script>document.title = {BRAND_NAME!r};</script>",
-        height=0,
-        width=0,
-    )
-
-
 def render_sidebar_logo() -> None:
     st.markdown(
         f"""

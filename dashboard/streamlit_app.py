@@ -16,7 +16,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from dashboard import api_client, embedded_backend
-from dashboard.branding import BRAND_NAME, LOGO_PATH, inject_brand_title, render_sidebar_logo
+from dashboard.branding import BRAND_NAME, LOGO_PATH, render_sidebar_logo
 from dashboard.styles import CUSTOM_CSS
 from dashboard.ui_components import (
     compute_overview_metrics,
@@ -122,7 +122,6 @@ def main() -> None:
         },
     )
 
-    inject_brand_title()
     inject_styles(CUSTOM_CSS)
     render_header()
 
