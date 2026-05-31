@@ -6,6 +6,7 @@ import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
+from types import ModuleType
 
 import streamlit as st
 from streamlit_autorefresh import st_autorefresh
@@ -14,7 +15,7 @@ ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from dashboard import api_client
+from dashboard import api_client, embedded_backend
 from dashboard.styles import CUSTOM_CSS
 from dashboard.ui_components import (
     compute_overview_metrics,
@@ -43,7 +44,6 @@ LOCAL_API_URL = "http://127.0.0.1:8000"
 
 
 def _is_streamlit_cloud() -> bool:
-    """Detect Streamlit Community Cloud (localhost backend won't work there)."""
     env = os.environ
     if env.get("STREAMLIT_SERVER_ENV", "").lower() == "cloud":
         return True
@@ -60,49 +60,39 @@ def _is_streamlit_cloud() -> bool:
     return False
 
 
-def _resolve_api_url() -> tuple[str, str | None]:
-    """Return API URL and an optional setup error message."""
+def _configured_api_url() -> str:
     try:
         secret_url = st.secrets.get("API_BASE_URL", "")
         if secret_url and str(secret_url).strip():
-            return str(secret_url).strip().rstrip("/"), None
+            return str(secret_url).strip().rstrip("/")
     except Exception:
         pass
+    return os.environ.get("API_BASE_URL", "").strip().rstrip("/")
 
-    env_url = os.environ.get("API_BASE_URL", "").strip()
-    if env_url:
-        return env_url.rstrip("/"), None
 
-    if _is_streamlit_cloud():
-        return "", (
-            "Streamlit Cloud cannot reach `localhost`. Add your **public Render API URL** "
-            "under **Settings → Secrets**:\n\n"
-            "`API_BASE_URL = \"https://karakorum-analytica-api.onrender.com\"`\n\n"
-            "Deploy the backend first if you have not already."
-        )
+def _choose_backend() -> tuple[ModuleType, str, bool]:
+    """Return backend module, display label, and whether mode is embedded."""
+    is_cloud = _is_streamlit_cloud()
+    api_url = _configured_api_url()
 
-    return LOCAL_API_URL, None
+    if is_cloud:
+        if api_url:
+            health = api_client.check_backend(api_url)
+            if health.get("ok"):
+                return api_client, api_url, False
+            if health.get("error") == "not_found" or "404" in str(health.get("error", "")):
+                return embedded_backend, "embedded (Render API not deployed)", True
+        return embedded_backend, "embedded (Streamlit Cloud)", True
+
+    api_url = api_url or LOCAL_API_URL
+    health = api_client.check_backend(api_url)
+    if health.get("ok"):
+        return api_client, api_url, False
+    return api_client, api_url, False
 
 
 def _now_str() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
-
-
-def _handle_draft_action(action: str, draft_id: int, base_url: str) -> None:
-    if action == "approve":
-        result = api_client.approve_draft(draft_id, base_url)
-    elif action == "reject":
-        result = api_client.reject_draft(draft_id, base_url)
-    elif action == "post":
-        result = api_client.post_draft(draft_id, base_url)
-    else:
-        return
-
-    if result["ok"]:
-        st.success(f"Draft #{draft_id} {action}d successfully.")
-        st.rerun()
-    else:
-        st.error(result.get("error") or f"Failed to {action} draft #{draft_id}.")
 
 
 def main() -> None:
@@ -116,35 +106,25 @@ def main() -> None:
     inject_styles(CUSTOM_CSS)
     render_header()
 
+    backend, backend_label, embedded = _choose_backend()
+    base_url = "" if embedded else (_configured_api_url() or LOCAL_API_URL)
+
     with st.sidebar:
         st.markdown("### Controls")
-        is_cloud = _is_streamlit_cloud()
-        default_url, setup_error = _resolve_api_url()
 
-        if setup_error:
-            st.error("Backend URL not configured for Streamlit Cloud")
-            st.markdown(setup_error)
-            st.link_button(
-                "Deploy API on Render",
-                "https://render.com/deploy?repo=https://github.com/Sameedism1995/karakorum-analytica",
-                use_container_width=True,
+        if embedded:
+            st.info(
+                "Running in **embedded mode** — collection runs inside this app. "
+                "No separate Render API needed."
             )
-            st.stop()
-
-        if is_cloud or default_url != LOCAL_API_URL:
-            base_url = default_url
+            st.text_input("Backend mode", value=backend_label, disabled=True)
+        else:
             st.text_input(
                 "API base URL",
                 value=base_url,
-                disabled=True,
-                help="Configured via Streamlit secrets (API_BASE_URL)",
-            )
-        else:
-            base_url = st.text_input(
-                "API base URL",
-                value=default_url,
+                disabled=_is_streamlit_cloud(),
                 help="FastAPI backend address",
-            ).strip().rstrip("/") or default_url
+            )
 
         refresh_label = st.selectbox(
             "Auto-refresh",
@@ -155,7 +135,7 @@ def main() -> None:
 
         if st.button("Run Collection Now", type="primary", use_container_width=True):
             with st.spinner("Running collection pipeline…"):
-                result = api_client.run_collection(base_url)
+                result = backend.run_collection(base_url)
             if result["ok"]:
                 data = result["data"] or {}
                 collection = data.get("collection", {})
@@ -168,13 +148,14 @@ def main() -> None:
             else:
                 st.error(result.get("error") or "Collection failed.")
 
-        health = api_client.check_backend(base_url)
+        health = backend.check_backend(base_url)
         connected = health.get("ok", False)
 
         st.markdown('<div class="sidebar-status-box">', unsafe_allow_html=True)
         if connected:
+            label = "Embedded backend active" if embedded else "Backend connected"
             st.markdown(
-                '<span class="status-pill status-connected">Backend connected</span>',
+                f'<span class="status-pill status-connected">{label}</span>',
                 unsafe_allow_html=True,
             )
         else:
@@ -182,9 +163,16 @@ def main() -> None:
                 '<span class="status-pill status-disconnected">Backend not connected</span>',
                 unsafe_allow_html=True,
             )
-            if health.get("error"):
-                st.caption(health["error"])
+            if health.get("error") and health.get("error") != "not_found":
+                st.caption(health.get("detail") or health.get("error"))
         st.markdown("</div>", unsafe_allow_html=True)
+
+        if _is_streamlit_cloud() and not embedded:
+            st.link_button(
+                "Deploy API on Render",
+                "https://render.com/deploy?repo=https://github.com/Sameedism1995/karakorum-analytica",
+                use_container_width=True,
+            )
 
         st.divider()
         st.caption("Human review only · No auto-posting · No X scraping")
@@ -192,10 +180,10 @@ def main() -> None:
     if refresh_seconds > 0:
         st_autorefresh(interval=refresh_seconds * 1000, key="dashboard_autorefresh")
 
-    health = api_client.check_backend(base_url)
-    raw_items = api_client.get_raw_news(base_url) if health["ok"] else []
-    incident_items = api_client.get_incidents(base_url) if health["ok"] else []
-    draft_items = api_client.get_drafts(base_url) if health["ok"] else []
+    health = backend.check_backend(base_url)
+    raw_items = backend.get_raw_news(base_url) if health["ok"] else []
+    incident_items = backend.get_incidents(base_url) if health["ok"] else []
+    draft_items = backend.get_drafts(base_url) if health["ok"] else []
 
     raw_df = raw_news_to_dataframe(raw_items)
     incidents_df = incidents_to_dataframe(incident_items)
@@ -205,20 +193,12 @@ def main() -> None:
     last_refresh = _now_str()
     x_posting_enabled = bool((health.get("data") or {}).get("x_posting_enabled", False))
 
-    if not health["ok"]:
-        if is_cloud:
-            st.markdown(
-                f'<div class="error-box">Cannot reach backend at <strong>{base_url}</strong>. '
-                f'Ensure the Render API is deployed and awake (free tier may take ~30s on first load). '
-                f'Check the URL in Streamlit secrets matches your Render service.</div>',
-                unsafe_allow_html=True,
-            )
-        else:
-            st.markdown(
-                f'<div class="error-box">Cannot reach backend at <strong>{base_url}</strong>. '
-                f'Start the API with <code>uvicorn app.main:app --reload</code> then refresh.</div>',
-                unsafe_allow_html=True,
-            )
+    if not health["ok"] and not embedded:
+        st.markdown(
+            f'<div class="error-box">Cannot reach backend at <strong>{base_url}</strong>. '
+            f'Start the API with <code>uvicorn app.main:app --reload</code> or wait for Render to wake up.</div>',
+            unsafe_allow_html=True,
+        )
 
     tab_overview, tab_raw, tab_incidents, tab_drafts, tab_system = st.tabs(
         ["Overview", "Raw News", "Incidents", "Drafts", "System Status"]
@@ -255,20 +235,34 @@ def main() -> None:
         elif not draft_items:
             st.info("No draft posts yet. Incidents will generate neutral drafts after collection.")
         else:
+
+            def handle_draft_action(action: str, draft_id: int) -> None:
+                if action == "approve":
+                    result = backend.approve_draft(draft_id, base_url)
+                elif action == "reject":
+                    result = backend.reject_draft(draft_id, base_url)
+                elif action == "post":
+                    result = backend.post_draft(draft_id, base_url)
+                else:
+                    return
+                if result["ok"]:
+                    st.success(f"Draft #{draft_id} {action}d successfully.")
+                    st.rerun()
+                else:
+                    st.error(result.get("error") or f"Failed to {action} draft #{draft_id}.")
+
             for draft in draft_items:
                 render_draft_card(
                     draft,
                     x_posting_enabled=x_posting_enabled,
-                    base_url=base_url,
-                    on_action=lambda action, draft_id, url=base_url: _handle_draft_action(
-                        action, draft_id, url
-                    ),
+                    base_url=base_url or "embedded",
+                    on_action=handle_draft_action,
                 )
 
     with tab_system:
         render_system_status(
             health=health,
-            base_url=base_url,
+            base_url=base_url or "embedded",
             metrics=metrics,
             raw_df=raw_df,
             last_refresh=last_refresh,

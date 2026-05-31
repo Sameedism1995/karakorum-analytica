@@ -41,6 +41,15 @@ def check_backend(base_url: str = DEFAULT_BASE_URL) -> dict[str, Any]:
             f"{_base_url(base_url)}/",
             timeout=REQUEST_TIMEOUT,
         )
+        if response.status_code == 404:
+            return {
+                "ok": False,
+                "data": None,
+                "error": "not_found",
+                "detail": (
+                    f"No API service at {base_url}. Deploy on Render or use embedded mode."
+                ),
+            }
         response.raise_for_status()
         data = response.json()
         return {"ok": True, "data": data, "error": None}

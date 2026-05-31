@@ -6,27 +6,40 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.config import get_settings
 
+
+def _build_engine(database_url: str):
+    connect_args: dict = {}
+    engine_kwargs: dict = {"pool_pre_ping": True}
+    if database_url.startswith("sqlite"):
+        connect_args = {"check_same_thread": False}
+    elif database_url.startswith("postgresql"):
+        engine_kwargs.update(
+            {
+                "pool_size": 5,
+                "max_overflow": 10,
+                "pool_recycle": 300,
+            }
+        )
+    return create_engine(database_url, connect_args=connect_args, **engine_kwargs)
+
+
 settings = get_settings()
 db_url = settings.effective_database_url
-
-connect_args: dict = {}
-engine_kwargs: dict = {"pool_pre_ping": True}
-
-if db_url.startswith("sqlite"):
-    connect_args = {"check_same_thread": False}
-elif db_url.startswith("postgresql"):
-    engine_kwargs.update(
-        {
-            "pool_size": 5,
-            "max_overflow": 10,
-            "pool_recycle": 300,
-        }
-    )
-
-engine = create_engine(db_url, connect_args=connect_args, **engine_kwargs)
+engine = _build_engine(db_url)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 logger.info(f"Database backend: {settings.database_backend}")
+
+
+def reconfigure_engine() -> None:
+    """Rebuild SQLAlchemy engine after environment/settings change."""
+    global engine, SessionLocal, settings, db_url
+    settings = get_settings()
+    db_url = settings.effective_database_url
+    engine.dispose()
+    engine = _build_engine(db_url)
+    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    logger.info(f"Database reconfigured: {settings.database_backend}")
 
 
 def get_db() -> Generator[Session, None, None]:
