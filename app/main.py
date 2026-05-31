@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from loguru import logger
 
 from app.api.routes import router
+from app.bootstrap import bootstrap_database
 from app.config import get_settings
 from app.jobs.scheduler import start_scheduler
 
@@ -51,6 +52,11 @@ def _run_startup_pipeline() -> None:
 
 @app.on_event("startup")
 def on_startup() -> None:
+    try:
+        bootstrap_database()
+    except Exception as exc:
+        logger.exception(f"Database bootstrap failed: {exc}")
+
     if settings.scheduler_enabled:
         try:
             start_scheduler()

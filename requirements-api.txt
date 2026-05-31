@@ -1,0 +1,14 @@
+# Production API dependencies (Render karakorum-analytica-api)
+fastapi
+uvicorn[standard]
+pydantic
+pydantic-settings
+python-dotenv
+sqlalchemy
+httpx
+apscheduler
+loguru
+tweepy
+requests
+psycopg[binary]
+supabase

@@ -162,8 +162,8 @@ Create two **Web Services** from the same repo:
 |---------|--------|
 | Name | `karakorum-analytica-api` |
 | Runtime | Python 3 |
-| Build Command | `pip install -r requirements.txt` |
-| Start Command | `python scripts/init_db.py && uvicorn app.main:app --host 0.0.0.0 --port $PORT` |
+| Build Command | `pip install -r requirements-api.txt` |
+| Start Command | `bash scripts/start_api.sh` |
 | Health Check Path | `/health` |
 
 **Service 2 — Dashboard**
@@ -173,7 +173,7 @@ Create two **Web Services** from the same repo:
 | Name | `karakorum-analytica-dashboard` |
 | Runtime | Python 3 |
 | Build Command | `pip install -r requirements.txt` |
-| Start Command | `streamlit run dashboard/streamlit_app.py --server.port $PORT --server.address 0.0.0.0 --server.headless true` |
+| Start Command | `bash scripts/start_dashboard.sh` |
 
 Set `API_BASE_URL` on the dashboard service to the API service’s public URL (e.g. `https://karakorum-analytica-api.onrender.com`).
 
@@ -237,6 +237,7 @@ Render → service → **Logs** tab. Check API logs for collection/scheduler err
 
 | Problem | Fix |
 |---------|-----|
+| **502 Bad Gateway** on first load | Free tier services sleep after ~15 min idle. Wait 30–60 seconds and refresh. Wake the API first: open `/health` |
 | Dashboard shows **Backend not connected** | Confirm `API_BASE_URL` on dashboard matches API URL; wake API by opening `/health`; free tier sleeps after ~15 min idle |
 | API returns 404 | Wrong start command — must be `uvicorn app.main:app --host 0.0.0.0 --port $PORT` from repo root |
 | Data lost after redeploy | Render free SQLite is ephemeral — set `SUPABASE_DB_URL` for persistent Postgres |

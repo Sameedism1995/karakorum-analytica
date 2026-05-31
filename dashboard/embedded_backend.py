@@ -54,7 +54,7 @@ def _seed_sources() -> None:
     try:
         if db.query(Source).count():
             return
-        from scripts.init_db import DEFAULT_SOURCES
+        from app.bootstrap import DEFAULT_SOURCES
 
         for payload in DEFAULT_SOURCES:
             db.add(Source(**payload))

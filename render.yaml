@@ -7,12 +7,14 @@ services:
     name: karakorum-analytica-api
     runtime: python
     plan: free
-    buildCommand: pip install -r requirements.txt
-    startCommand: python scripts/init_db.py && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    buildCommand: pip install -r requirements-api.txt
+    startCommand: bash scripts/start_api.sh
     healthCheckPath: /health
     envVars:
       - key: PYTHON_VERSION
         value: "3.11.9"
+      - key: PYTHONUNBUFFERED
+        value: "1"
       - key: ENVIRONMENT
         value: production
       - key: APP_ENV
@@ -24,7 +26,7 @@ services:
       - key: SCHEDULER_ENABLED
         value: "true"
       - key: RUN_COLLECTION_ON_STARTUP
-        value: "true"
+        value: "false"
       - key: COLLECTION_INTERVAL_MINUTES
         value: "15"
       # Ephemeral SQLite on Render (use SUPABASE_DB_URL for persistent production data)
@@ -55,10 +57,13 @@ services:
     runtime: python
     plan: free
     buildCommand: pip install -r requirements.txt
-    startCommand: streamlit run dashboard/streamlit_app.py --server.port $PORT --server.address 0.0.0.0 --server.headless true
+    startCommand: bash scripts/start_dashboard.sh
+    healthCheckPath: /_stcore/health
     envVars:
       - key: PYTHON_VERSION
         value: "3.11.9"
+      - key: PYTHONUNBUFFERED
+        value: "1"
       - key: ENVIRONMENT
         value: production
       - key: API_BASE_URL
