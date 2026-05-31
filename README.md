@@ -116,11 +116,19 @@ Use **Run Collection Now** in the sidebar to trigger the pipeline, then browse O
 
 ## Share publicly
 
-**I can't deploy to Streamlit Cloud from here** — it requires you to sign in at [share.streamlit.io](https://share.streamlit.io) once.
+**One-click deploy (you approve once on Render — ~3 min):**
 
-**Easiest path:** deploy both API + dashboard on Render in one click — see **[DEPLOY.md](DEPLOY.md) Option A**.
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/Sameedism1995/pakistan-osint-news-mvp)
 
-Or use Streamlit Cloud for the UI + Render for the API — see **Option B** in DEPLOY.md.
+Or open: **https://render.com/deploy?repo=https://github.com/Sameedism1995/pakistan-osint-news-mvp**
+
+That creates both public services:
+- `https://pakistan-osint-api.onrender.com`
+- `https://pakistan-osint-dashboard.onrender.com` ← share this link
+
+I cannot complete this step without your Render login. After deploy, open the dashboard URL and click **Run Collection Now**.
+
+Alternative: Streamlit Cloud — see **[DEPLOY.md](DEPLOY.md) Option B** (also requires your login at [share.streamlit.io](https://share.streamlit.io)).
 
 ## ACLED (optional)
 

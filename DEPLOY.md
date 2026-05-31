@@ -1,11 +1,22 @@
 # Deploy & go live
 
-You need a **public backend** (data API) and a **public dashboard** (Streamlit UI).  
-I cannot click "Deploy" on Streamlit Cloud or Render for you — both require **your** account login once (~3 minutes).
+## Fastest: one click (you approve on Render)
+
+**Click this link** (sign in with GitHub if asked, then click **Apply**):
+
+**https://render.com/deploy?repo=https://github.com/Sameedism1995/pakistan-osint-news-mvp**
+
+Wait ~5–10 minutes. You get:
+- API: `https://pakistan-osint-api.onrender.com`
+- Dashboard: `https://pakistan-osint-dashboard.onrender.com` ← **share this**
+
+Then open the dashboard → **Run Collection Now**.
+
+> I (the AI) cannot click Approve on Render for you — it requires **your** Render account.
 
 ---
 
-## Option A — Easiest: everything on Render (recommended)
+## Option A — Render dashboard (same result, manual)
 
 One deploy gives you **two public URLs** (API + dashboard). No Streamlit Cloud needed.
 
