@@ -39,20 +39,53 @@ REFRESH_OPTIONS = {
     "5 minutes": 300,
 }
 
+LOCAL_API_URL = "http://127.0.0.1:8000"
+
+
+def _is_streamlit_cloud() -> bool:
+    """Detect Streamlit Community Cloud (localhost backend won't work there)."""
+    env = os.environ
+    if env.get("STREAMLIT_SERVER_ENV", "").lower() == "cloud":
+        return True
+    if env.get("STREAMLIT_RUNTIME_ENVIRONMENT", "").lower() == "cloud":
+        return True
+    if ".streamlit.app" in env.get("HOSTNAME", ""):
+        return True
+    try:
+        host = st.context.headers.get("Host", "")
+        if ".streamlit.app" in host:
+            return True
+    except Exception:
+        pass
+    return False
+
+
+def _resolve_api_url() -> tuple[str, str | None]:
+    """Return API URL and an optional setup error message."""
+    try:
+        secret_url = st.secrets.get("API_BASE_URL", "")
+        if secret_url and str(secret_url).strip():
+            return str(secret_url).strip().rstrip("/"), None
+    except Exception:
+        pass
+
+    env_url = os.environ.get("API_BASE_URL", "").strip()
+    if env_url:
+        return env_url.rstrip("/"), None
+
+    if _is_streamlit_cloud():
+        return "", (
+            "Streamlit Cloud cannot reach `localhost`. Add your **public Render API URL** "
+            "under **Settings → Secrets**:\n\n"
+            "`API_BASE_URL = \"https://karakorum-analytica-api.onrender.com\"`\n\n"
+            "Deploy the backend first if you have not already."
+        )
+
+    return LOCAL_API_URL, None
+
 
 def _now_str() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
-
-
-def _default_api_url() -> str:
-    """Prefer Streamlit Cloud secrets, then env, then localhost."""
-    try:
-        url = st.secrets.get("API_BASE_URL", "")
-        if url:
-            return str(url).strip().rstrip("/")
-    except Exception:
-        pass
-    return api_client.resolve_base_url()
 
 
 def _handle_draft_action(action: str, draft_id: int, base_url: str) -> None:
@@ -85,11 +118,27 @@ def main() -> None:
 
     with st.sidebar:
         st.markdown("### Controls")
-        deployed = bool(os.environ.get("STREAMLIT_SHARING_MODE") or os.environ.get("API_BASE_URL"))
-        default_url = _default_api_url()
-        if deployed and default_url != api_client.DEFAULT_BASE_URL:
+        is_cloud = _is_streamlit_cloud()
+        default_url, setup_error = _resolve_api_url()
+
+        if setup_error:
+            st.error("Backend URL not configured for Streamlit Cloud")
+            st.markdown(setup_error)
+            st.link_button(
+                "Deploy API on Render",
+                "https://render.com/deploy?repo=https://github.com/Sameedism1995/karakorum-analytica",
+                use_container_width=True,
+            )
+            st.stop()
+
+        if is_cloud or default_url != LOCAL_API_URL:
             base_url = default_url
-            st.text_input("API base URL", value=base_url, disabled=True, help="Set via Streamlit secrets")
+            st.text_input(
+                "API base URL",
+                value=base_url,
+                disabled=True,
+                help="Configured via Streamlit secrets (API_BASE_URL)",
+            )
         else:
             base_url = st.text_input(
                 "API base URL",
@@ -157,11 +206,19 @@ def main() -> None:
     x_posting_enabled = bool((health.get("data") or {}).get("x_posting_enabled", False))
 
     if not health["ok"]:
-        st.markdown(
-            f'<div class="error-box">Cannot reach backend at <strong>{base_url}</strong>. '
-            f'Start the API with <code>uvicorn app.main:app --reload</code> then refresh.</div>',
-            unsafe_allow_html=True,
-        )
+        if is_cloud:
+            st.markdown(
+                f'<div class="error-box">Cannot reach backend at <strong>{base_url}</strong>. '
+                f'Ensure the Render API is deployed and awake (free tier may take ~30s on first load). '
+                f'Check the URL in Streamlit secrets matches your Render service.</div>',
+                unsafe_allow_html=True,
+            )
+        else:
+            st.markdown(
+                f'<div class="error-box">Cannot reach backend at <strong>{base_url}</strong>. '
+                f'Start the API with <code>uvicorn app.main:app --reload</code> then refresh.</div>',
+                unsafe_allow_html=True,
+            )
 
     tab_overview, tab_raw, tab_incidents, tab_drafts, tab_system = st.tabs(
         ["Overview", "Raw News", "Incidents", "Drafts", "System Status"]
