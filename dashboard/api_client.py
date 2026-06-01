@@ -34,12 +34,17 @@ def _base_url(base_url: str | None = None) -> str:
     return resolve_base_url(base_url)
 
 
-def check_backend(base_url: str | None = None) -> dict[str, Any]:
+def check_backend(
+    base_url: str | None = None,
+    *,
+    timeout: int | None = None,
+) -> dict[str, Any]:
     """Return health payload from GET /health (fallback GET /) or an error dict."""
     url = _base_url(base_url)
+    request_timeout = timeout if timeout is not None else REQUEST_TIMEOUT
     try:
         for path in ("/health", "/"):
-            response = requests.get(f"{url}{path}", timeout=REQUEST_TIMEOUT)
+            response = requests.get(f"{url}{path}", timeout=request_timeout)
             if response.status_code == 404:
                 continue
             response.raise_for_status()

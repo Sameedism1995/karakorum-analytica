@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from types import ModuleType
@@ -83,19 +84,38 @@ def _configured_api_url() -> str:
     return api_client.resolve_base_url()
 
 
-def _api_reachable(url: str) -> bool:
+def _on_render() -> bool:
+    return bool(os.environ.get("RENDER"))
+
+
+def _api_reachable(
+    url: str,
+    *,
+    attempts: int = 1,
+    timeout: int = 30,
+) -> bool:
     if not url:
         return False
-    return bool(api_client.check_backend(url).get("ok"))
+    for attempt in range(attempts):
+        if api_client.check_backend(url, timeout=timeout).get("ok"):
+            return True
+        if attempt < attempts - 1:
+            time.sleep(3)
+    return False
 
 
 def _choose_backend() -> tuple[ModuleType, str, bool]:
     """Return backend module, display label, and whether mode is embedded."""
     is_cloud = _is_streamlit_cloud()
     api_url = _configured_api_url()
+    is_render = _on_render()
 
-    if api_url and _api_reachable(api_url):
-        return api_client, api_url, False
+    if api_url:
+        attempts = 5 if is_render else 2
+        timeout = 90 if is_render else 30
+        if _api_reachable(api_url, attempts=attempts, timeout=timeout):
+            label = api_url if not is_render else f"API ({api_url})"
+            return api_client, api_url, False
 
     if is_cloud:
         return embedded_backend, "embedded (Streamlit Cloud)", True
@@ -139,11 +159,33 @@ def main() -> None:
         st.markdown("### Controls")
 
         if embedded:
-            st.info(
-                "Running in **embedded mode** — collection runs inside this app. "
-                "No separate Render API needed."
-            )
+            if _on_render():
+                st.warning(
+                    "**Embedded on Render** — the API is asleep or unreachable. "
+                    "Data only persists if **SUPABASE_DB_URL** and **SCWEET_AUTH_TOKEN** "
+                    "are set on this dashboard service (same as the API)."
+                )
+                if st.button("Retry API connection", use_container_width=True):
+                    st.rerun()
+            else:
+                st.info(
+                    "Running in **embedded mode** — collection runs inside this app."
+                )
             st.text_input("Backend mode", value=backend_label, disabled=True)
+            if embedded and hasattr(backend, "get_database_status"):
+                db_info = backend.get_database_status()
+                if db_info.get("ok"):
+                    backend_name = db_info.get("backend", "unknown")
+                    persistent = db_info.get("persistent") or db_info.get("using_supabase")
+                    pill = "status-connected" if persistent else "status-disconnected"
+                    st.markdown(
+                        f'<span class="status-pill {pill}">DB: {backend_name}</span>',
+                        unsafe_allow_html=True,
+                    )
+                    if not persistent:
+                        st.caption("Ephemeral DB — set SUPABASE_DB_URL on Render.")
+                else:
+                    st.error(db_info.get("error") or "Database not connected")
         else:
             st.text_input(
                 "API base URL",

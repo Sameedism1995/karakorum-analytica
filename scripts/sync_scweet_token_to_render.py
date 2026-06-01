@@ -288,6 +288,10 @@ def main() -> int:
         print("  Deploy:        triggered for each service")
     if args.write_env:
         print("  Local .env:    updated")
+    print(
+        "\nReminder: set SUPABASE_DB_URL on BOTH Render services (API + dashboard) "
+        "to the same Postgres URL so the watch list and tweets persist."
+    )
     return 0
 
 

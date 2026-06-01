@@ -27,16 +27,18 @@ def bootstrap_env(root: Path | None = None) -> None:
     if not os.environ.get("SCWEET_PASSWORD"):
         os.environ["SCWEET_PASSWORD"] = "Hello123Bye456Hi987"
 
-    if not os.environ.get("SCWEET_AUTO_LOGIN"):
-        os.environ["SCWEET_AUTO_LOGIN"] = "true"
+    is_render = bool(os.environ.get("RENDER"))
+    is_prod = os.environ.get("ENVIRONMENT", "").lower() in {"production", "prod"} or os.environ.get(
+        "APP_ENV", ""
+    ).lower() in {"production", "prod"}
 
-    # Production / Render: use SCWEET_AUTH_TOKEN only — no Playwright login on server
+    # Production / Render: never default to Playwright login on the server
     if os.environ.get("SCWEET_AUTH_TOKEN", "").strip():
         os.environ["SCWEET_AUTO_LOGIN"] = "false"
-    elif os.environ.get("ENVIRONMENT", "").lower() == "production" or os.environ.get(
-        "APP_ENV", ""
-    ).lower() == "production":
-        os.environ.setdefault("SCWEET_AUTO_LOGIN", "false")
+    elif is_render or is_prod:
+        os.environ["SCWEET_AUTO_LOGIN"] = "false"
+    elif not os.environ.get("SCWEET_AUTO_LOGIN"):
+        os.environ["SCWEET_AUTO_LOGIN"] = "true"
 
     if not os.environ.get("SCWEET_LOGIN_HEADLESS"):
         is_prod = os.environ.get("ENVIRONMENT", "").lower() in {"production", "prod"} or os.environ.get(

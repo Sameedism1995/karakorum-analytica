@@ -32,6 +32,21 @@ CLOUD_SQLITE = "sqlite:////tmp/karakorum-analytica.db"
 LOCAL_SQLITE = "sqlite:///./local.db"
 
 
+def _on_render() -> bool:
+    return bool(os.environ.get("RENDER"))
+
+
+def _database_config_fingerprint() -> str:
+    """Cache key so a changed SUPABASE_DB_URL re-initializes the engine."""
+    return "|".join(
+        [
+            os.environ.get("SUPABASE_DB_URL", "").strip(),
+            os.environ.get("DATABASE_URL", "").strip(),
+            "render" if _on_render() else "local",
+        ]
+    )
+
+
 def _on_streamlit_cloud() -> bool:
     cwd = os.getcwd()
     root = str(Path(__file__).resolve().parent.parent)
@@ -92,33 +107,70 @@ def _init_with_url(database_url: str) -> dict[str, Any]:
 
 
 @st.cache_resource
-def _bootstrap_database() -> dict[str, Any]:
+def _bootstrap_database(_config_fingerprint: str) -> dict[str, Any]:
+    del _config_fingerprint  # only used to bust cache when env changes
     _apply_secrets_to_env()
 
     supabase_url = os.environ.get("SUPABASE_DB_URL", "").strip()
     if supabase_url:
         status = _init_with_url(supabase_url)
         if status.get("ok"):
+            status["persistent"] = True
             return status
+        if _on_render():
+            return {
+                "ok": False,
+                "persistent": False,
+                "error": f"Supabase connection failed: {status.get('error')}. "
+                "Check SUPABASE_DB_URL on the Render dashboard service.",
+            }
+
+    if _on_render():
+        return {
+            "ok": False,
+            "persistent": False,
+            "error": (
+                "SUPABASE_DB_URL is not set on this Render service. "
+                "Add the same Postgres URL as karakorum-analytica-api so the watch list "
+                "and collected tweets persist."
+            ),
+        }
 
     if _on_streamlit_cloud():
-        return _init_with_url(CLOUD_SQLITE)
+        status = _init_with_url(CLOUD_SQLITE)
+        status["persistent"] = False
+        return status
 
     if os.environ.get("DATABASE_URL"):
         status = _init_with_url(os.environ["DATABASE_URL"])
         if status.get("ok"):
+            settings = get_settings()
+            status["persistent"] = settings.using_supabase
             return status
 
     for url in (LOCAL_SQLITE, CLOUD_SQLITE):
         status = _init_with_url(url)
         if status.get("ok"):
+            status["persistent"] = url.startswith("postgresql")
             return status
 
-    return {"ok": False, "error": "Could not initialize database"}
+    return {"ok": False, "persistent": False, "error": "Could not initialize database"}
+
+
+def get_database_status() -> dict[str, Any]:
+    """Current DB connection info for dashboard UI."""
+    status = _bootstrap_database(_database_config_fingerprint())
+    settings = get_settings()
+    return {
+        **status,
+        "backend": settings.database_backend,
+        "using_supabase": settings.using_supabase,
+        "on_render": _on_render(),
+    }
 
 
 def _session():
-    status = _bootstrap_database()
+    status = _bootstrap_database(_database_config_fingerprint())
     if not status.get("ok"):
         raise RuntimeError(status.get("error") or "Database not ready")
     return SessionLocal()
@@ -126,11 +178,13 @@ def _session():
 
 def check_backend(base_url: str = "") -> dict[str, Any]:
     try:
-        db_status = _bootstrap_database()
+        db_status = _bootstrap_database(_database_config_fingerprint())
         if not db_status.get("ok"):
             return {"ok": False, "data": None, "error": db_status.get("error", "Database failed")}
 
         settings = get_settings()
+        scweet = get_scweet_health()
+
         return {
             "ok": True,
             "data": {
@@ -142,7 +196,8 @@ def check_backend(base_url: str = "") -> dict[str, Any]:
                 "x_configured": settings.x_configured,
                 "x_oauth_configured": settings.x_oauth_configured,
                 "x_connection": check_x_connection() if settings.x_configured else None,
-                "scweet": get_scweet_health(),
+                "scweet": scweet,
+                "database_persistent": db_status.get("persistent", settings.using_supabase),
                 "acled_configured": settings.acled_configured,
                 "database": {
                     "backend": settings.database_backend,
