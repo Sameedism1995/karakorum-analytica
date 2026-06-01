@@ -354,22 +354,26 @@ def render_x_watch_list(backend: ModuleType, base_url: str) -> None:
 
     items: list[dict[str, Any]] = watch_payload.get("items") or []
 
+    if "x_watch_new_handle" not in st.session_state:
+        st.session_state.x_watch_new_handle = ""
+
     add_col, btn_col = st.columns([4, 1])
     with add_col:
         new_handle = st.text_input(
-            "Add X handle or profile URL",
+            "Add new URL",
             key="x_watch_new_handle",
-            placeholder="@TKCkhyber or https://x.com/TKCkhyber",
+            placeholder="Add new URL — @user or https://x.com/user",
             label_visibility="collapsed",
         )
     with btn_col:
         st.markdown("<div style='height:1.6rem'></div>", unsafe_allow_html=True)
         if st.button("Add", type="primary", use_container_width=True, key="x_watch_add_btn"):
             if not new_handle.strip():
-                st.warning("Enter a handle or profile URL.")
+                st.warning("Enter a profile URL or @handle.")
             else:
                 added = backend.add_x_watch_account(base_url, handle=new_handle.strip())
                 if added.get("ok"):
+                    st.session_state.x_watch_new_handle = ""
                     st.success(f"Added @{added.get('account', {}).get('handle', new_handle.lstrip('@'))}")
                     st.rerun()
                 else:
@@ -380,13 +384,24 @@ def render_x_watch_list(backend: ModuleType, base_url: str) -> None:
         if st.button("Fetch all watched profiles now", use_container_width=True, key="x_watch_fetch_all"):
             with st.spinner("Fetching all watched profiles…"):
                 bulk = backend.fetch_all_x_watch_accounts(base_url)
-            if bulk.get("ok"):
+            saved = bulk.get("saved", 0)
+            fetched = bulk.get("tweets_fetched", 0)
+            errors = bulk.get("errors", 0)
+            if bulk.get("ok") and (saved > 0 or fetched > 0):
                 st.success(
-                    f"Saved {bulk.get('saved', 0)} new tweet(s) from {bulk.get('handles', 0)} account(s)."
+                    f"Fetched {fetched} tweet(s), saved {saved} new to database "
+                    f"({bulk.get('handles', 0)} account(s), {errors} error(s))."
                 )
                 st.rerun()
+            elif bulk.get("ok") and saved == 0 and fetched == 0 and errors == 0:
+                st.info("No watched accounts to fetch.")
             else:
-                st.error(bulk.get("error") or "Bulk fetch failed.")
+                st.error(bulk.get("error") or f"Fetch finished with {errors} error(s) and nothing new saved.")
+                for detail in bulk.get("error_details") or []:
+                    st.caption(f"@{detail.get('handle')}: {detail.get('error')}")
+                if saved > 0 or fetched > 0:
+                    st.warning(f"Partial success: {fetched} fetched, {saved} saved.")
+                    st.rerun()
     with action_col2:
         st.metric("Watched accounts", len(items))
 

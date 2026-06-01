@@ -397,7 +397,7 @@ def fetch_all_x_watch_accounts(base_url: str | None = None) -> dict[str, Any]:
     try:
         response = requests.post(
             f"{_base_url(base_url)}/scweet/watch/fetch-all",
-            timeout=300,
+            timeout=600,
         )
         response.raise_for_status()
         return response.json()

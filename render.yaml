@@ -29,9 +29,8 @@ services:
         value: "false"
       - key: COLLECTION_INTERVAL_MINUTES
         value: "15"
-      # Ephemeral SQLite on Render (use SUPABASE_DB_URL for persistent production data)
-      - key: DATABASE_URL
-        value: sqlite:////tmp/karakorum-analytica.db
+      # Set SUPABASE_DB_URL in Render dashboard (sync: python scripts/sync_render_env.py --deploy)
+      # Do not use ephemeral SQLite in production.
       - key: ALLOWED_ORIGINS
         value: http://localhost:8501,http://127.0.0.1:8501,https://karakorum-analytica-dashboard.onrender.com
       # Set in Render dashboard (Secrets) — do not commit real values:
@@ -40,7 +39,7 @@ services:
       - key: SUPABASE_SERVICE_ROLE_KEY
         sync: false
       - key: SUPABASE_BUCKET_NAME
-        sync: false
+        value: karakorum-osint-media
       - key: SUPABASE_DB_URL
         sync: false
       - key: SCRAPER_API_KEY
@@ -118,3 +117,9 @@ services:
       # Same Postgres as API — watch list + collected tweets persist here
       - key: SUPABASE_DB_URL
         sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_BUCKET_NAME
+        value: karakorum-osint-media

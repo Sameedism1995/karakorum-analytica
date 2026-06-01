@@ -1,4 +1,3 @@
-import hashlib
 import json
 from collections.abc import Callable
 from datetime import datetime, timezone
@@ -14,13 +13,9 @@ from app.collectors.reliefweb_collector import collect_reliefweb
 from app.collectors.scweet_collector import collect_scweet
 from app.models.raw_news import RawNews
 from app.processors.pakistan_filter import filter_pakistan_item, has_security_keyword
+from app.services.dedup_service import content_hash_for_item, extract_tweet_id
 
 ProgressCallback = Callable[[str, int, str], None]
-
-
-def _content_hash(title: str | None, url: str | None, source_name: str) -> str:
-    raw = f"{source_name}|{url or ''}|{title or ''}".lower().strip()
-    return hashlib.sha256(raw.encode()).hexdigest()
 
 
 def _serialize_raw(raw: Any) -> str:
@@ -28,16 +23,41 @@ def _serialize_raw(raw: Any) -> str:
 
 
 def save_raw_news(db: Session, item: dict) -> RawNews | None:
-    """Save normalized item if not duplicate (URL or content_hash)."""
+    """Save normalized item if not duplicate (tweet id, URL, or content_hash)."""
     url = item.get("url")
     title = item.get("title")
     source_name = item["source_name"]
-    content_hash = _content_hash(title, url, source_name)
+    content_hash = content_hash_for_item(item)
 
     if db.query(RawNews).filter(RawNews.content_hash == content_hash).first():
         return None
+
+    tweet_id = extract_tweet_id(item)
+    if tweet_id:
+        existing = (
+            db.query(RawNews)
+            .filter(RawNews.source_name == source_name, RawNews.raw_json.contains(f'"tweet_id": "{tweet_id}"'))
+            .first()
+        )
+        if not existing:
+            existing = (
+                db.query(RawNews)
+                .filter(RawNews.source_name == source_name, RawNews.raw_json.contains(f'"tweet_id": {tweet_id}'))
+                .first()
+            )
+        if existing:
+            return None
+
     if url and db.query(RawNews).filter(RawNews.url == url).first():
         return None
+
+    media_urls_json = item.get("media_urls")
+    if media_urls_json is None and isinstance(item.get("raw_json"), dict):
+        stored = (item.get("raw_json") or {}).get("stored_media") or []
+        if stored:
+            import json as _json
+
+            media_urls_json = _json.dumps([m.get("public_url") for m in stored if m.get("public_url")])
 
     record = RawNews(
         source_name=source_name,
@@ -50,6 +70,7 @@ def save_raw_news(db: Session, item: dict) -> RawNews | None:
         province=item.get("province"),
         city=item.get("city"),
         raw_json=_serialize_raw(item.get("raw_json")),
+        media_urls=media_urls_json if isinstance(media_urls_json, str) else None,
         content_hash=content_hash,
         status="collected",
     )

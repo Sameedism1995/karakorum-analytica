@@ -163,16 +163,39 @@ def fetch_watch_account(
 
     result = execute_scweet_operation(
         "profile_tweets",
-        {"users": handle, "limit": tweet_limit, "save": False},
+        {
+            "users": handle,
+            "limit": tweet_limit,
+            "save": False,
+            "resume": False,
+            "max_empty_pages": 3,
+        },
     )
 
     if not result.get("ok"):
-        record.last_error = str(result.get("error") or "Fetch failed")
+        err = str(result.get("error") or "Fetch failed")
+        record.last_error = err
         db.commit()
         posting = compute_posting_stats(db, handle)
-        return {**result, "handle": handle, "account": watch_account_to_dict(record, posting=posting)}
+        return {"ok": False, "error": err, "handle": handle, "account": watch_account_to_dict(record, posting=posting)}
 
     items = result.get("items") or []
+    if not items:
+        scweet_err = (result.get("scweet") or {}).get("error")
+        err = scweet_err or f"No tweets returned for @{handle} (timeline empty or rate limited)."
+        record.last_error = err
+        record.last_fetched_at = _utc_now()
+        record.last_tweet_count = 0
+        record.last_saved_count = 0
+        db.commit()
+        posting = compute_posting_stats(db, handle)
+        return {
+            "ok": False,
+            "error": err,
+            "handle": handle,
+            "count": 0,
+            "account": watch_account_to_dict(record, posting=posting),
+        }
     persist_stats = persist_scweet_items(db, items, apply_pipeline_filters=False)
 
     record.last_fetched_at = _utc_now()
@@ -200,6 +223,7 @@ def collect_all_watch_accounts(
     total_saved = 0
     total_fetched = 0
     errors = 0
+    error_details: list[dict[str, str]] = []
 
     for index, account in enumerate(accounts):
         if on_progress:
@@ -211,15 +235,19 @@ def collect_all_watch_accounts(
             )
         result = fetch_watch_account(db, account.handle)
         if result.get("ok"):
-            total_fetched += result.get("count", 0)
+            total_fetched += result.get("count", len(result.get("items") or []))
             total_saved += (result.get("persist") or {}).get("saved", 0)
         else:
             errors += 1
-            logger.warning(f"Watch fetch failed for @{account.handle}: {result.get('error')}")
+            msg = str(result.get("error") or "Fetch failed")
+            error_details.append({"handle": account.handle, "error": msg})
+            logger.warning(f"Watch fetch failed for @{account.handle}: {msg}")
 
     return {
+        "ok": errors < len(accounts),
         "handles": len(accounts),
         "tweets_fetched": total_fetched,
         "saved": total_saved,
         "errors": errors,
+        "error_details": error_details,
     }

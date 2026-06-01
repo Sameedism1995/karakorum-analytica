@@ -73,7 +73,9 @@ def render_ingestion_connection_banners(
             st.success(f"**Database:** Supabase via API ({db_meta.get('backend', 'postgres')})")
         elif health_ok:
             st.warning(
-                "**Database:** API is up but not using Supabase. Set **SUPABASE_DB_URL** on the API service."
+                "**Database:** API is up but not using Supabase. Set **SUPABASE_DB_URL** on "
+                "**karakorum-analytica-api** (and dashboard), then run locally:\n\n"
+                "`python scripts/sync_render_env.py --deploy`"
             )
 
     # Scweet / X token

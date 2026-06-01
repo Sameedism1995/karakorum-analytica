@@ -20,5 +20,6 @@ class RawNews(Base):
     province: Mapped[str | None] = mapped_column(String(128), nullable=True)
     city: Mapped[str | None] = mapped_column(String(128), nullable=True)
     raw_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    media_urls: Mapped[str | None] = mapped_column(Text, nullable=True)
     content_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)
     status: Mapped[str] = mapped_column(String(32), default="collected", nullable=False)

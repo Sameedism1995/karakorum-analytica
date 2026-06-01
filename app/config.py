@@ -1,3 +1,4 @@
+import os
 from functools import lru_cache
 from urllib.parse import quote_plus
 
@@ -27,7 +28,7 @@ class Settings(BaseSettings):
     # Supabase — set SUPABASE_DB_URL (recommended) or URL + DB password
     supabase_url: str = ""
     supabase_service_role_key: str = ""
-    supabase_bucket_name: str = ""
+    supabase_bucket_name: str = "karakorum-osint-media"
     supabase_db_url: str = ""
     supabase_db_password: str = ""
 
@@ -199,6 +200,19 @@ class Settings(BaseSettings):
 
         if self.database_url.strip() and not self.database_url.startswith("sqlite"):
             return self._normalize_postgres_url(self.database_url.strip())
+
+        # Render production: avoid silent ephemeral SQLite when Supabase is expected
+        if os.environ.get("RENDER") and self.database_url.strip().startswith("sqlite"):
+            logger_msg = (
+                "RENDER without SUPABASE_DB_URL — using ephemeral SQLite; "
+                "set SUPABASE_DB_URL on this service."
+            )
+            try:
+                from loguru import logger
+
+                logger.warning(logger_msg)
+            except Exception:
+                pass
 
         if self.supabase_url and self.supabase_db_password:
             ref = self.supabase_project_ref

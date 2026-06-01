@@ -6,7 +6,28 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
+from loguru import logger
+
+from app.config import get_settings
+from app.integrations.supabase_media import (
+    attach_stored_media_to_item,
+    upload_tweet_media,
+)
 from app.services.collection_service import save_raw_news
+
+
+def _maybe_upload_media(item: dict[str, Any]) -> None:
+    settings = get_settings()
+    if not settings.supabase_configured:
+        return
+    raw = item.get("raw_json")
+    if not isinstance(raw, dict):
+        return
+    try:
+        stored = upload_tweet_media(raw)
+        attach_stored_media_to_item(item, stored)
+    except Exception as exc:
+        logger.debug(f"Media upload skipped: {exc}")
 
 
 def persist_scweet_items(
@@ -38,6 +59,7 @@ def persist_scweet_items(
                 continue
             payload = filtered
 
+        _maybe_upload_media(payload)
         if save_raw_news(db, payload):
             saved += 1
         else:
