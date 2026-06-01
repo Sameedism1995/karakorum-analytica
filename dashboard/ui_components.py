@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 import pandas as pd
@@ -105,14 +105,44 @@ def source_tag_html(source_name: str | None) -> str:
     return f'<span class="source-tag {css_class}">{name}</span>'
 
 
-def format_datetime(value: str | None) -> str:
-    if not value:
+def format_datetime(value: Any) -> str:
+    """Format API/DB/pandas datetime values for display."""
+    if value is None:
         return "—"
     try:
-        dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
-        return dt.strftime("%Y-%m-%d %H:%M UTC")
-    except (ValueError, TypeError):
+        if isinstance(value, float):
+            if pd.isna(value):
+                return "—"
+            return _format_epoch(value)
+        if isinstance(value, int):
+            return _format_epoch(float(value))
+        if isinstance(value, datetime):
+            dt = value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+            return dt.strftime("%Y-%m-%d %H:%M UTC")
+        if hasattr(value, "to_pydatetime"):
+            dt = value.to_pydatetime()
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            return dt.strftime("%Y-%m-%d %H:%M UTC")
+        if isinstance(value, str):
+            text = value.strip()
+            if not text:
+                return "—"
+            dt = datetime.fromisoformat(text.replace("Z", "+00:00"))
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            return dt.strftime("%Y-%m-%d %H:%M UTC")
+    except (ValueError, TypeError, OSError, OverflowError):
         return str(value)
+    return str(value)
+
+
+def _format_epoch(ts: float) -> str:
+    """Unix timestamp (seconds or milliseconds) → display string."""
+    if ts > 1e12:
+        ts = ts / 1000.0
+    dt = datetime.fromtimestamp(ts, tz=timezone.utc)
+    return dt.strftime("%Y-%m-%d %H:%M UTC")
 
 
 def extract_keywords(title: str | None, summary: str | None) -> list[str]:
