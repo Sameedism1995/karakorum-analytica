@@ -13,6 +13,7 @@ from app.services.incident_filter import (
     filter_incidents,
 )
 from dashboard.ui_components import render_incident_card
+from dashboard.widget_state import prepare_widgets, schedule_widget_resets
 
 
 def _default_date_range() -> tuple[date, date]:
@@ -43,6 +44,16 @@ def render_incidents_tab(
 
     location_options = ["All locations"] + collect_location_options(incident_items)
     date_from_default, date_to_default = _default_date_range()
+
+    prepare_widgets(
+        {
+            "incidents_filter_keyword": "",
+            "incidents_use_date_filter": False,
+            "incidents_filter_location": "All locations",
+            "incidents_filter_date_from": date_from_default,
+            "incidents_filter_date_to": date_to_default,
+        }
+    )
 
     with st.expander("Filters", expanded=True):
         f1, f2, f3 = st.columns([2, 2, 2])
@@ -83,9 +94,15 @@ def render_incidents_tab(
             )
 
         if st.button("Clear filters", key="incidents_clear_filters"):
-            st.session_state.incidents_filter_keyword = ""
-            st.session_state.incidents_use_date_filter = False
-            st.session_state.incidents_filter_location = "All locations"
+            schedule_widget_resets(
+                {
+                    "incidents_filter_keyword": "",
+                    "incidents_use_date_filter": False,
+                    "incidents_filter_location": "All locations",
+                    "incidents_filter_date_from": date_from_default,
+                    "incidents_filter_date_to": date_to_default,
+                }
+            )
             st.rerun()
 
     criteria = IncidentFilterCriteria(

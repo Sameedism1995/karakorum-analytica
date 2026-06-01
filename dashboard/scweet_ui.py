@@ -10,6 +10,7 @@ import pandas as pd
 import streamlit as st
 
 from dashboard.ui_components import render_raw_news_cards
+from dashboard.widget_state import prepare_widgets, schedule_widget_reset
 
 SOURCE_NAME = "X/Scweet"
 TWEET_TYPE_OPTIONS = [
@@ -354,8 +355,7 @@ def render_x_watch_list(backend: ModuleType, base_url: str) -> None:
 
     items: list[dict[str, Any]] = watch_payload.get("items") or []
 
-    if "x_watch_new_handle" not in st.session_state:
-        st.session_state.x_watch_new_handle = ""
+    prepare_widgets({"x_watch_new_handle": ""})
 
     add_col, btn_col = st.columns([4, 1])
     with add_col:
@@ -373,7 +373,7 @@ def render_x_watch_list(backend: ModuleType, base_url: str) -> None:
             else:
                 added = backend.add_x_watch_account(base_url, handle=new_handle.strip())
                 if added.get("ok"):
-                    st.session_state.x_watch_new_handle = ""
+                    schedule_widget_reset("x_watch_new_handle", "")
                     st.success(f"Added @{added.get('account', {}).get('handle', new_handle.lstrip('@'))}")
                     st.rerun()
                 else:
