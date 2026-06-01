@@ -345,41 +345,8 @@ def _render_search_tab(backend: ModuleType, base_url: str, scweet: dict[str, Any
             st.error(result.get("error") or "Search failed.")
 
 
-def _render_watch_list_tab(backend: ModuleType, base_url: str) -> None:
+def render_x_watch_list(backend: ModuleType, base_url: str) -> None:
     """Managed list of X profiles — add/remove in one click, show last extraction time."""
-    st.caption(
-        "Accounts here are polled on **Run Collection Now** and saved to your database (Supabase when configured)."
-    )
-
-    if hasattr(backend, "get_database_status"):
-        db_info = backend.get_database_status()
-        if not db_info.get("ok"):
-            st.error(db_info.get("error") or "Database is not connected.")
-            return
-        if not (db_info.get("persistent") or db_info.get("using_supabase")):
-            st.warning(
-                "Watch list is using a **temporary local database** on this server. "
-                "Set **SUPABASE_DB_URL** on Render (dashboard + API) so accounts survive restarts."
-            )
-    elif base_url:
-        health = backend.check_backend(base_url)
-        db_meta = (health.get("data") or {}).get("database") or {}
-        if health.get("ok") and not db_meta.get("using_supabase"):
-            st.warning(
-                "API is connected but not using Supabase. Set **SUPABASE_DB_URL** on the API service."
-            )
-        if not health.get("ok"):
-            st.error(health.get("error") or health.get("detail") or "Backend not connected.")
-            return
-
-    scweet_health = backend.get_scweet_status(base_url)
-    scweet = (scweet_health.get("data") or {}).get("scweet") or {}
-    if scweet.get("enabled") and not scweet.get("has_auth_token"):
-        st.error(
-            "**SCWEET_AUTH_TOKEN** is missing. X fetch will fail on Render until you run locally:\n\n"
-            "`python scripts/sync_scweet_token_to_render.py --deploy --write-env`"
-        )
-
     watch_payload = backend.get_x_watch_list(base_url)
     if watch_payload.get("error") and not watch_payload.get("items"):
         st.error(watch_payload.get("error") or "Could not load watch list.")
@@ -563,8 +530,8 @@ def _render_collected_tab(raw_df: pd.DataFrame) -> None:
 
     if scweet_df.empty:
         st.info(
-            "No X/Scweet items in the database yet. Add accounts on **Watch list**, "
-            "use **Profile tweets** with save enabled, or **Run Collection Now**."
+            "No X/Scweet items in the database yet. Add accounts under **Data Ingestion → X accounts**, "
+            "use **Profile tweets** with save enabled, or **Run API collection**."
         )
         return
 
@@ -612,17 +579,8 @@ def render_scweet_tab(
 
     st.divider()
 
-    (
-        tab_watch,
-        tab_session,
-        tab_search,
-        tab_profile,
-        tab_follows,
-        tab_users,
-        tab_collected,
-    ) = st.tabs(
+    tab_session, tab_search, tab_profile, tab_follows, tab_users, tab_collected = st.tabs(
         [
-            "Watch list",
             "Session",
             "Search",
             "Profile tweets",
@@ -632,8 +590,6 @@ def render_scweet_tab(
         ]
     )
 
-    with tab_watch:
-        _render_watch_list_tab(backend, base_url)
     with tab_session:
         _render_session_tab(backend, base_url, scweet)
     with tab_search:
