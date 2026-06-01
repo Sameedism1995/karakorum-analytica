@@ -190,10 +190,17 @@ def _render_session_tab(
     with c2:
         st.markdown(
             f"- Auto-login: **{'on' if scweet.get('auto_login') else 'off'}**\n"
+            f"- Auth token: **{'set' if scweet.get('has_auth_token') else 'missing'}**\n"
             f"- Headless login: **`SCWEET_LOGIN_HEADLESS`** in `.env`\n"
             f"- DB: `{scweet.get('db_path', '—')}`\n"
             f"- Default pipeline query: see Search tab"
         )
+        if scweet.get("has_auth_token") and not scweet.get("auto_login"):
+            st.info(
+                "Using **SCWEET_AUTH_TOKEN** (no Playwright on server). "
+                "Refresh locally with `python scripts/scweet_login.py --refresh`, "
+                "then `python scripts/export_scweet_token_for_render.py` for Render."
+            )
 
     st.divider()
     st.markdown("**Account pool (ScweetDB)**")

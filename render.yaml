@@ -62,7 +62,7 @@ services:
       - key: SCWEET_AUTH_TOKEN
         sync: false
       - key: SCWEET_AUTO_LOGIN
-        sync: false
+        value: "false"
       - key: SCWEET_LOGIN_HEADLESS
         sync: false
       - key: SCWEET_COOKIES_FILE
@@ -88,6 +88,8 @@ services:
         value: "1"
       - key: ENVIRONMENT
         value: production
+      - key: APP_ENV
+        value: production
       - key: API_BASE_URL
         fromService:
           name: karakorum-analytica-api
@@ -103,10 +105,13 @@ services:
       - key: SCWEET_EMAIL
         sync: false
       - key: SCWEET_AUTO_LOGIN
-        value: "true"
+        value: "false"
       - key: SCWEET_LOGIN_HEADLESS
         value: "true"
       - key: SCWEET_SESSION_CACHE_PATH
         value: data/scweet_session.json
       - key: SCWEET_DB_PATH
         value: data/scweet_state.db
+      # Paste token from: python scripts/export_scweet_token_for_render.py
+      - key: SCWEET_AUTH_TOKEN
+        sync: false
