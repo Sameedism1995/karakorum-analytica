@@ -51,6 +51,18 @@ services:
         sync: false
       - key: ACLED_API_KEY
         sync: false
+      - key: SCWEET_ENABLED
+        sync: false
+      - key: SCWEET_AUTH_TOKEN
+        sync: false
+      - key: SCWEET_COOKIES_FILE
+        sync: false
+      - key: SCWEET_SEARCH_QUERIES
+        sync: false
+      - key: SCWEET_LIMIT
+        sync: false
+      - key: PROXY_URLS
+        sync: false
 
   - type: web
     name: karakorum-analytica-dashboard

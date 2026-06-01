@@ -2,11 +2,12 @@ import json
 from datetime import datetime, timezone
 
 from loguru import logger
+from sqlalchemy.orm import Session
 
 from app.config import get_settings
+from app.integrations.x_client import get_x_write_client
 from app.models.draft_post import DraftPost
 from app.models.posted_item import PostedItem
-from sqlalchemy.orm import Session
 
 
 def post_draft_to_x(db: Session, draft: DraftPost) -> dict:
@@ -21,22 +22,20 @@ def post_draft_to_x(db: Session, draft: DraftPost) -> dict:
             "error": "X posting is disabled. Set X_POSTING_ENABLED=true to enable (Phase 1 default: off).",
         }
 
+    if not settings.x_oauth_configured:
+        return {
+            "success": False,
+            "error": (
+                "X OAuth credentials missing. Posting requires X_API_KEY, X_API_SECRET, "
+                "X_ACCESS_TOKEN, and X_ACCESS_TOKEN_SECRET (not bearer token alone)."
+            ),
+        }
+
     if draft.status != "approved":
         return {"success": False, "error": "Draft must be approved before posting."}
 
     try:
-        import tweepy
-
-        if settings.x_bearer_token:
-            client = tweepy.Client(bearer_token=settings.x_bearer_token)
-        else:
-            client = tweepy.Client(
-                consumer_key=settings.x_api_key,
-                consumer_secret=settings.x_api_secret,
-                access_token=settings.x_access_token,
-                access_token_secret=settings.x_access_token_secret,
-            )
-
+        client = get_x_write_client()
         response = client.create_tweet(text=draft.post_text[:280])
         tweet_id = str(response.data["id"])
         post_url = f"https://x.com/i/web/status/{tweet_id}"

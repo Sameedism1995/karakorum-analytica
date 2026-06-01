@@ -10,5 +10,7 @@ apscheduler
 loguru
 tweepy
 requests
+feedparser
+tenacity
 psycopg[binary]
 supabase

@@ -9,7 +9,9 @@ from sqlalchemy.orm import Session
 
 from app.collectors.acled_collector import collect_acled
 from app.collectors.gdelt_collector import collect_gdelt
+from app.collectors.news_channels_collector import collect_news_channels
 from app.collectors.reliefweb_collector import collect_reliefweb
+from app.collectors.scweet_collector import collect_scweet
 from app.models.raw_news import RawNews
 from app.processors.pakistan_filter import filter_pakistan_item, has_security_keyword
 
@@ -84,7 +86,17 @@ def collect_all(
     all_items.extend(acled_items)
     report(f"ACLED returned {len(acled_items)} events", 50, "acled")
 
-    report(f"Filtering and saving {len(all_items)} items…", 55, "save")
+    report("Fetching open news channel RSS feeds…", 52, "news_web")
+    news_items = collect_news_channels()
+    all_items.extend(news_items)
+    report(f"News channels returned {len(news_items)} headlines", 58, "news_web")
+
+    report("Searching X via Scweet…", 59, "scweet")
+    scweet_items = collect_scweet()
+    all_items.extend(scweet_items)
+    report(f"Scweet returned {len(scweet_items)} tweets", 61, "scweet")
+
+    report(f"Filtering and saving {len(all_items)} items…", 62, "save")
     saved = 0
     skipped = 0
     filtered_out = 0

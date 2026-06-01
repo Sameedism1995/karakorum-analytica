@@ -27,6 +27,12 @@ DEFAULT_SOURCES = [
         "weight": SOURCE_WEIGHT,
         "is_active": True,
     },
+    {
+        "name": "X/Scweet",
+        "api_url": "https://github.com/Altimis/Scweet",
+        "weight": SOURCE_WEIGHT,
+        "is_active": True,
+    },
 ]
 
 

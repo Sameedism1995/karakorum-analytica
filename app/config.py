@@ -32,6 +32,19 @@ class Settings(BaseSettings):
     supabase_db_password: str = ""
 
     scraper_api_key: str = ""
+    proxy_urls: str = Field(
+        default="",
+        description="Comma-separated HTTP(S) proxy URLs for news fetching",
+    )
+    scraper_use_curl_cffi: bool = False
+    scraper_respect_robots: bool = True
+    scraper_request_delay_seconds: float = 1.5
+    scraper_max_retries: int = 3
+    scraper_user_agent: str = ""
+    news_channel_feeds: str = Field(
+        default="",
+        description="Comma-separated Name|RSS_URL entries for open news channels",
+    )
 
     reliefweb_appname: str = ""
 
@@ -44,6 +57,62 @@ class Settings(BaseSettings):
     x_access_token: str = ""
     x_access_token_secret: str = ""
     x_bearer_token: str = ""
+
+    scweet_enabled: bool = False
+    scweet_auth_token: str = ""
+    scweet_email: str = ""
+    scweet_password: str = ""
+    scweet_username: str = ""
+    scweet_cookies_file: str = ""
+    scweet_db_path: str = "data/scweet_state.db"
+    scweet_search_queries: str = Field(
+        default="",
+        description="Comma-separated X search queries for Scweet (default: Pakistan security query)",
+    )
+    scweet_limit: int = 50
+    scweet_since_days: int = 7
+    scweet_proxy: str = ""
+    scweet_lang: str = "en"
+    scweet_auto_login: bool = True
+    scweet_login_headless: bool = True
+    scweet_session_cache_path: str = "data/scweet_session.json"
+
+    @property
+    def scweet_search_queries_list(self) -> list[str]:
+        if not self.scweet_search_queries.strip():
+            return []
+        return [q.strip() for q in self.scweet_search_queries.replace("\n", ",").split(",") if q.strip()]
+
+    @property
+    def scweet_configured(self) -> bool:
+        if not self.scweet_enabled:
+            return False
+        if self.scweet_auth_token.strip() or self.scweet_cookies_file.strip():
+            return True
+        if self.scweet_password.strip() and (
+            self.scweet_username.strip() or self.scweet_email.strip()
+        ):
+            return True
+        from pathlib import Path
+
+        return Path(self.scweet_db_path.strip() or "data/scweet_state.db").is_file()
+
+    @property
+    def x_oauth_configured(self) -> bool:
+        """OAuth 1.0a user keys — required to post tweets."""
+        return all(
+            (
+                self.x_api_key.strip(),
+                self.x_api_secret.strip(),
+                self.x_access_token.strip(),
+                self.x_access_token_secret.strip(),
+            )
+        )
+
+    @property
+    def x_configured(self) -> bool:
+        """Any X API credentials present (OAuth and/or bearer)."""
+        return self.x_oauth_configured or bool(self.x_bearer_token.strip())
 
     @property
     def runtime_environment(self) -> str:

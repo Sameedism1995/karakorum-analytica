@@ -19,6 +19,7 @@ from dashboard import api_client, embedded_backend
 from dashboard.branding import BRAND_NAME, LOGO_PATH, render_sidebar_logo
 from dashboard.collection_ui import handle_run_collection_click, render_collection_progress
 from dashboard.metrics_cache import load_metrics
+from dashboard.scweet_ui import render_scweet_tab
 from dashboard.styles import CUSTOM_CSS
 from dashboard.ui_components import (
     drafts_to_dataframe,
@@ -191,7 +192,7 @@ def main() -> None:
             )
 
         st.divider()
-        st.caption("Human review only · No auto-posting · No X scraping")
+        st.caption("Human review only · No auto-posting by default · GDELT · ReliefWeb · ACLED · Scweet")
 
     if refresh_seconds > 0:
         st_autorefresh(interval=refresh_seconds * 1000, key="dashboard_autorefresh")
@@ -216,8 +217,8 @@ def main() -> None:
             unsafe_allow_html=True,
         )
 
-    tab_overview, tab_raw, tab_incidents, tab_drafts, tab_system = st.tabs(
-        ["Overview", "Raw News", "Incidents", "Drafts", "System Status"]
+    tab_overview, tab_raw, tab_incidents, tab_drafts, tab_scweet, tab_system = st.tabs(
+        ["Overview", "Raw News", "Incidents", "Drafts", "X / Scweet", "System Status"]
     )
 
     with tab_overview:
@@ -274,6 +275,14 @@ def main() -> None:
                     base_url=base_url or "embedded",
                     on_action=handle_draft_action,
                 )
+
+    with tab_scweet:
+        render_scweet_tab(
+            backend,
+            base_url,
+            health_ok=health["ok"],
+            raw_df=raw_df,
+        )
 
     with tab_system:
         render_system_status(

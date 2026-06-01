@@ -225,3 +225,107 @@ def post_draft(
             except ValueError:
                 message = exc.response.text or message
         return {"ok": False, "data": None, "error": message}
+
+
+def get_scweet_status(base_url: str | None = None) -> dict[str, Any]:
+    """Fetch GET /health/scweet."""
+    try:
+        response = requests.get(
+            f"{_base_url(base_url)}/health/scweet",
+            timeout=REQUEST_TIMEOUT,
+        )
+        response.raise_for_status()
+        return {"ok": True, "data": response.json(), "error": None}
+    except requests.RequestException as exc:
+        return {"ok": False, "data": None, "error": str(exc)}
+
+
+def refresh_scweet_session(
+    base_url: str | None = None,
+    *,
+    force: bool = False,
+) -> dict[str, Any]:
+    """POST /scweet/session/refresh."""
+    try:
+        response = requests.post(
+            f"{_base_url(base_url)}/scweet/session/refresh",
+            params={"force": force},
+            timeout=120,
+        )
+        response.raise_for_status()
+        return response.json()
+    except requests.RequestException as exc:
+        message = str(exc)
+        if isinstance(exc, requests.HTTPError) and exc.response is not None:
+            try:
+                detail = exc.response.json()
+                message = detail.get("error") or detail.get("detail") or message
+            except ValueError:
+                message = exc.response.text or message
+        return {"ok": False, "error": message}
+
+
+def run_scweet_test_search(
+    base_url: str | None = None,
+    *,
+    query: str = "",
+    limit: int = 5,
+) -> dict[str, Any]:
+    """POST /scweet/search/test."""
+    try:
+        response = requests.post(
+            f"{_base_url(base_url)}/scweet/search/test",
+            params={"query": query, "limit": limit},
+            timeout=180,
+        )
+        response.raise_for_status()
+        return response.json()
+    except requests.RequestException as exc:
+        message = str(exc)
+        if isinstance(exc, requests.HTTPError) and exc.response is not None:
+            try:
+                detail = exc.response.json()
+                message = detail.get("error") or detail.get("detail") or message
+            except ValueError:
+                message = exc.response.text or message
+        return {"ok": False, "error": message, "items": []}
+
+
+def get_scweet_accounts(base_url: str | None = None, *, runs_limit: int = 10) -> dict[str, Any]:
+    """GET /scweet/accounts."""
+    try:
+        response = requests.get(
+            f"{_base_url(base_url)}/scweet/accounts",
+            params={"runs_limit": runs_limit},
+            timeout=REQUEST_TIMEOUT,
+        )
+        response.raise_for_status()
+        return response.json()
+    except requests.RequestException as exc:
+        return {"ok": False, "error": str(exc), "accounts": [], "runs": []}
+
+
+def run_scweet_operation(
+    base_url: str | None = None,
+    *,
+    operation: str,
+    params: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """POST /scweet/run."""
+    try:
+        response = requests.post(
+            f"{_base_url(base_url)}/scweet/run",
+            json={"operation": operation, "params": params or {}},
+            timeout=180,
+        )
+        response.raise_for_status()
+        return response.json()
+    except requests.RequestException as exc:
+        message = str(exc)
+        if isinstance(exc, requests.HTTPError) and exc.response is not None:
+            try:
+                detail = exc.response.json()
+                message = detail.get("error") or detail.get("detail") or message
+            except ValueError:
+                message = exc.response.text or message
+        return {"ok": False, "error": message}

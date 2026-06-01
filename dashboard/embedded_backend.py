@@ -10,6 +10,14 @@ import streamlit as st
 
 from app.config import get_settings
 from app.database import SessionLocal, check_database_connection, init_db, reconfigure_engine
+from app.services.scweet_service import (
+    execute_scweet_operation as execute_scweet_operation_service,
+    get_scweet_accounts as get_scweet_accounts_service,
+    get_scweet_health,
+    refresh_scweet_session as refresh_scweet_session_service,
+    run_scweet_test_search as run_scweet_test_search_service,
+)
+from app.integrations.x_client import check_x_connection
 from app.services.collection_service import get_recent_raw_news, raw_news_to_dict
 from app.services.draft_service import (
     approve_draft as approve_draft_record,
@@ -114,6 +122,10 @@ def check_backend(base_url: str = "") -> dict[str, Any]:
                 "env": settings.runtime_environment,
                 "status": "running",
                 "x_posting_enabled": settings.x_posting_enabled,
+                "x_configured": settings.x_configured,
+                "x_oauth_configured": settings.x_oauth_configured,
+                "x_connection": check_x_connection() if settings.x_configured else None,
+                "scweet": get_scweet_health(),
                 "acled_configured": settings.acled_configured,
                 "database": {
                     "backend": settings.database_backend,
@@ -243,3 +255,48 @@ def post_draft(draft_id: int, base_url: str = "") -> dict[str, Any]:
         return {"ok": True, "data": result, "error": None}
     finally:
         db.close()
+
+
+def get_scweet_status(base_url: str = "") -> dict[str, Any]:
+    try:
+        return {"ok": True, "data": {"scweet": get_scweet_health()}, "error": None}
+    except Exception as exc:
+        return {"ok": False, "data": None, "error": str(exc)}
+
+
+def refresh_scweet_session(base_url: str = "", *, force: bool = False) -> dict[str, Any]:
+    try:
+        return refresh_scweet_session_service(force=force)
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)}
+
+
+def run_scweet_test_search(
+    base_url: str = "",
+    *,
+    query: str = "",
+    limit: int = 5,
+) -> dict[str, Any]:
+    try:
+        return run_scweet_test_search_service(query=query or None, limit=limit)
+    except Exception as exc:
+        return {"ok": False, "error": str(exc), "items": []}
+
+
+def get_scweet_accounts(base_url: str = "", *, runs_limit: int = 10) -> dict[str, Any]:
+    try:
+        return get_scweet_accounts_service(runs_limit=runs_limit)
+    except Exception as exc:
+        return {"ok": False, "error": str(exc), "accounts": [], "runs": []}
+
+
+def run_scweet_operation(
+    base_url: str = "",
+    *,
+    operation: str,
+    params: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    try:
+        return execute_scweet_operation_service(operation, params or {})
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)}

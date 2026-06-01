@@ -5,6 +5,16 @@ from sqlalchemy.orm import Session
 from app.config import get_settings
 from app.database import get_db
 from app.integrations.supabase_client import check_supabase_api, check_supabase_storage
+from pydantic import BaseModel, Field
+
+from app.services.scweet_service import (
+    execute_scweet_operation,
+    get_scweet_accounts,
+    get_scweet_health,
+    refresh_scweet_session,
+    run_scweet_test_search,
+)
+from app.integrations.x_client import check_x_connection
 from app.models.raw_news import RawNews
 from app.publishers.x_publisher import post_draft_to_x
 from app.services.collection_job import get_collection_job_status, start_collection_job
@@ -25,6 +35,11 @@ settings = get_settings()
 API_SERVICE_NAME = "karakorum-analytica-api"
 
 
+class ScweetRunRequest(BaseModel):
+    operation: str
+    params: dict = Field(default_factory=dict)
+
+
 @router.get("/health")
 def health() -> dict:
     return {"status": "ok", "service": API_SERVICE_NAME}
@@ -36,6 +51,7 @@ def root() -> dict:
 
     db_status = check_database_connection()
     supabase_api = check_supabase_api() if settings.supabase_configured else None
+    x_status = check_x_connection() if settings.x_configured else None
 
     return {
         "message": "Karakorum Analytica API is running",
@@ -44,6 +60,10 @@ def root() -> dict:
         "env": settings.runtime_environment,
         "status": "running",
         "x_posting_enabled": settings.x_posting_enabled,
+        "x_configured": settings.x_configured,
+        "x_oauth_configured": settings.x_oauth_configured,
+        "x_connection": x_status,
+        "scweet": get_scweet_health(),
         "acled_configured": settings.acled_configured,
         "database": {
             "backend": settings.database_backend,
@@ -69,6 +89,42 @@ def database_health() -> dict:
         "database": db_status,
         "supabase_storage": supabase_storage,
     }
+
+
+@router.get("/health/x")
+def x_health() -> dict:
+    """Verify X (Twitter) API credentials and connection."""
+    return {"x": check_x_connection()}
+
+
+@router.get("/health/scweet")
+def scweet_health() -> dict:
+    """Scweet collector configuration and client readiness."""
+    return {"scweet": get_scweet_health()}
+
+
+@router.post("/scweet/session/refresh")
+def scweet_refresh_session(force: bool = False) -> dict:
+    """Log into X and cache session cookies for Scweet."""
+    return refresh_scweet_session(force=force)
+
+
+@router.post("/scweet/search/test")
+def scweet_test_search(query: str = "", limit: int = 5) -> dict:
+    """Run a live Scweet search (preview only, does not persist)."""
+    return run_scweet_test_search(query=query or None, limit=limit)
+
+
+@router.get("/scweet/accounts")
+def scweet_accounts(runs_limit: int = 10) -> dict:
+    """List provisioned Scweet accounts and recent runs."""
+    return get_scweet_accounts(runs_limit=runs_limit)
+
+
+@router.post("/scweet/run")
+def scweet_run(body: ScweetRunRequest) -> dict:
+    """Execute a Scweet operation (search, profile tweets, followers, following, user info)."""
+    return execute_scweet_operation(body.operation, body.params)
 
 
 @router.post("/collect/run")

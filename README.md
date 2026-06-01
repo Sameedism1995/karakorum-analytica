@@ -2,7 +2,7 @@
 
 Phase 1 backend for collecting public Pakistan-focused crime, conflict, and security news from open APIs, grouping incidents, scoring source confidence, and generating neutral X/Twitter draft posts for human review.
 
-**No ML. No X scraping. No auto-posting by default.**
+**No ML. No auto-posting by default. Optional X search via Scweet.**
 
 ## What it does
 

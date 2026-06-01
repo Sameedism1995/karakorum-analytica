@@ -8,3 +8,11 @@ logs/
 .DS_Store
 .pytest_cache/
 .streamlit/secrets.toml
+
+# Scweet credentials/state (optional integration — see requirements-scweet.txt)
+scweet_state.db
+cookies.json
+data/scweet_state.db
+data/scweet_session.json
+third_party/Scweet/scweet_state.db
+data/

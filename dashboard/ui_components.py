@@ -68,7 +68,7 @@ def render_header() -> None:
                 <div class="main-header-text">
                     <h1 class="main-header-title">{BRAND_NAME}</h1>
                     <p class="main-header-tagline">
-                        Security intelligence · GDELT, ReliefWeb &amp; ACLED · Human review only
+                        Security intelligence · GDELT, ReliefWeb, ACLED, Scweet · Human review only
                     </p>
                 </div>
             </div>
@@ -634,7 +634,21 @@ def render_system_status(
         render_kpi_card("Drafts", metrics["total_drafts"])
 
     x_enabled = data.get("x_posting_enabled", False)
-    if x_enabled:
+    x_conn = data.get("x_connection") or {}
+    if x_conn.get("ok"):
+        username = x_conn.get("username", "—")
+        mode = x_conn.get("mode", "unknown")
+        st.markdown(
+            f'<div class="info-box"><strong>X API connected</strong> (@{username}, {mode}). '
+            f'Posting {"enabled" if x_enabled else "disabled — set X_POSTING_ENABLED=true to allow draft posts"}.</div>',
+            unsafe_allow_html=True,
+        )
+    elif data.get("x_configured") and x_conn.get("error"):
+        st.markdown(
+            f'<div class="error-box"><strong>X API error:</strong> {x_conn.get("error")}</div>',
+            unsafe_allow_html=True,
+        )
+    elif x_enabled:
         st.markdown(
             '<div class="warn-box"><strong>X posting is enabled.</strong> Use with caution — drafts still require human approval before posting.</div>',
             unsafe_allow_html=True,
@@ -642,6 +656,21 @@ def render_system_status(
     else:
         st.markdown(
             '<div class="info-box"><strong>X posting is disabled.</strong> Set <code>X_POSTING_ENABLED=true</code> in .env to enable later.</div>',
+            unsafe_allow_html=True,
+        )
+
+    scweet = data.get("scweet") or {}
+    if scweet.get("enabled") and scweet.get("configured"):
+        st.markdown(
+            '<div class="info-box"><strong>Scweet (X search) enabled.</strong> '
+            "Tweets are collected during Run Collection Now when queries match Pakistan/security filters.</div>",
+            unsafe_allow_html=True,
+        )
+    elif scweet.get("enabled"):
+        st.markdown(
+            '<div class="warn-box"><strong>Scweet enabled but not configured.</strong> '
+            "Set <code>SCWEET_USERNAME</code> and <code>SCWEET_PASSWORD</code> in .env, "
+            "then use the <strong>X / Scweet</strong> tab to connect.</div>",
             unsafe_allow_html=True,
         )
 

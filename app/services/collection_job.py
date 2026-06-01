@@ -31,6 +31,8 @@ STEP_LABELS = {
     "gdelt": "GDELT",
     "reliefweb": "ReliefWeb",
     "acled": "ACLED",
+    "news_web": "News channels",
+    "scweet": "X (Scweet)",
     "save": "Saving articles",
     "incidents": "Grouping incidents",
     "drafts": "Generating drafts",

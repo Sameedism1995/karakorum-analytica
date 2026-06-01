@@ -98,4 +98,4 @@ curl https://karakorum-analytica-api.onrender.com/
 ## Safety
 
 - `X_POSTING_ENABLED=false` by default
-- Human review only — no auto-posting to X
+- Human review only — no auto-posting to X by default (Scweet search optional via `SCWEET_ENABLED`)

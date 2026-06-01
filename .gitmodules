@@ -1,0 +1,3 @@
+[submodule "third_party/Scweet"]
+	path = third_party/Scweet
+	url = https://github.com/Altimis/Scweet.git
