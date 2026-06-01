@@ -9,4 +9,5 @@ if [ -f .env ]; then
   set +a
 fi
 python -m playwright install chromium 2>/dev/null || true
+bash scripts/start_spiderfoot.sh || true
 exec uvicorn app.main:app --host 0.0.0.0 --port "${PORT:-8000}"

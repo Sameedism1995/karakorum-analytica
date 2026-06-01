@@ -81,6 +81,13 @@ class Settings(BaseSettings):
     scweet_login_headless: bool = True
     scweet_session_cache_path: str = "data/scweet_session.json"
 
+    spiderfoot_enabled: bool = True
+    spiderfoot_base_url: str = "http://127.0.0.1:5001"
+    spiderfoot_dir: str = "third_party/spiderfoot"
+    spiderfoot_data_path: str = Field(default="data/spiderfoot", alias="SPIDERFOOT_DATA")
+    spiderfoot_default_usecase: str = "passive"
+    spiderfoot_autostart: bool = True
+
     render_api_key: str = ""
     render_scweet_service_names: str = (
         "karakorum-analytica-api,karakorum-analytica-dashboard"

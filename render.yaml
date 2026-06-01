@@ -46,6 +46,17 @@ services:
         sync: false
       - key: SUPABASE_POOLER_REGION
         sync: false
+      - key: SPIDERFOOT_ENABLED
+        value: "true"
+      - key: SPIDERFOOT_AUTOSTART
+        value: "true"
+      - key: SPIDERFOOT_BASE_URL
+        value: http://127.0.0.1:5001
+      - key: SPIDERFOOT_DATA
+        value: data/spiderfoot
+      - key: SPIDERFOOT_DEFAULT_USECASE
+        value: passive
+      - key: SCRAPER_API_KEY
         sync: false
       - key: RELIEFWEB_APPNAME
         sync: false

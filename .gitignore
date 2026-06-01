@@ -15,6 +15,7 @@ cookies.json
 data/scweet_state.db
 data/scweet_session.json
 third_party/Scweet/scweet_state.db
+third_party/spiderfoot/
 data/
 llm-dashboard/node_modules/
 llm-dashboard/dist/

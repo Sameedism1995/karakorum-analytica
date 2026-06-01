@@ -481,3 +481,122 @@ def run_scweet_operation(
             except ValueError:
                 message = exc.response.text or message
         return {"ok": False, "error": message}
+
+
+def _spiderfoot_json(
+    method: str,
+    path: str,
+    base_url: str | None = None,
+    *,
+    params: dict[str, Any] | None = None,
+    json_body: dict[str, Any] | None = None,
+    timeout: int = REQUEST_TIMEOUT,
+) -> dict[str, Any]:
+    try:
+        response = requests.request(
+            method,
+            f"{_base_url(base_url)}{path}",
+            params=params,
+            json=json_body,
+            timeout=timeout,
+        )
+        response.raise_for_status()
+        return response.json()
+    except requests.RequestException as exc:
+        message = str(exc)
+        if isinstance(exc, requests.HTTPError) and exc.response is not None:
+            try:
+                detail = exc.response.json()
+                message = detail.get("detail") or detail.get("error") or message
+            except ValueError:
+                message = exc.response.text or message
+        return {"ok": False, "error": message}
+
+
+def get_spiderfoot_status(base_url: str | None = None) -> dict[str, Any]:
+    """GET /health/spiderfoot."""
+    try:
+        response = requests.get(
+            f"{_base_url(base_url)}/health/spiderfoot",
+            timeout=REQUEST_TIMEOUT,
+        )
+        response.raise_for_status()
+        return {"ok": True, "data": response.json()}
+    except requests.RequestException as exc:
+        return {"ok": False, "error": str(exc)}
+
+
+def list_spiderfoot_scans(base_url: str | None = None) -> dict[str, Any]:
+    return _spiderfoot_json("GET", "/spiderfoot/scans", base_url)
+
+
+def get_spiderfoot_scan(base_url: str | None = None, scan_id: str = "") -> dict[str, Any]:
+    return _spiderfoot_json("GET", f"/spiderfoot/scans/{scan_id}", base_url)
+
+
+def get_spiderfoot_scan_results(
+    base_url: str | None = None,
+    scan_id: str = "",
+    *,
+    event_type: str = "",
+    unique: bool = False,
+    limit: int = 500,
+) -> dict[str, Any]:
+    return _spiderfoot_json(
+        "GET",
+        f"/spiderfoot/scans/{scan_id}/results",
+        base_url,
+        params={"event_type": event_type, "unique": unique, "limit": limit},
+        timeout=180,
+    )
+
+
+def start_spiderfoot_scan(
+    base_url: str | None = None,
+    *,
+    scan_name: str = "",
+    target: str = "",
+    usecase: str = "passive",
+    module_list: str = "",
+    type_list: str = "",
+) -> dict[str, Any]:
+    return _spiderfoot_json(
+        "POST",
+        "/spiderfoot/scans",
+        base_url,
+        json_body={
+            "scan_name": scan_name,
+            "target": target,
+            "usecase": usecase,
+            "module_list": module_list,
+            "type_list": type_list,
+        },
+        timeout=120,
+    )
+
+
+def stop_spiderfoot_scan(base_url: str | None = None, scan_id: str = "") -> dict[str, Any]:
+    return _spiderfoot_json("POST", f"/spiderfoot/scans/{scan_id}/stop", base_url)
+
+
+def delete_spiderfoot_scan(base_url: str | None = None, scan_id: str = "") -> dict[str, Any]:
+    try:
+        response = requests.delete(
+            f"{_base_url(base_url)}/spiderfoot/scans/{scan_id}",
+            timeout=REQUEST_TIMEOUT,
+        )
+        response.raise_for_status()
+        return response.json()
+    except requests.RequestException as exc:
+        message = str(exc)
+        if isinstance(exc, requests.HTTPError) and exc.response is not None:
+            try:
+                detail = exc.response.json()
+                message = detail.get("detail") or message
+            except ValueError:
+                message = exc.response.text or message
+        return {"ok": False, "error": message}
+
+
+def list_spiderfoot_modules(base_url: str | None = None) -> dict[str, Any]:
+    return _spiderfoot_json("GET", "/spiderfoot/modules", base_url, timeout=120)

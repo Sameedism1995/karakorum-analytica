@@ -45,6 +45,16 @@ from app.integrations.supabase_read_service import (
 from app.services.db_read_fallback import sql_or_rest
 from app.services.incident_service import incident_to_dict, list_incidents
 from app.services.stats_service import get_dashboard_stats
+from app.services.spiderfoot_service import (
+    delete_scan as delete_spiderfoot_scan,
+    get_scan as get_spiderfoot_scan,
+    get_scan_results as get_spiderfoot_scan_results,
+    get_spiderfoot_health,
+    list_modules as list_spiderfoot_modules,
+    list_scans as list_spiderfoot_scans,
+    start_scan as start_spiderfoot_scan,
+    stop_scan as stop_spiderfoot_scan,
+)
 
 router = APIRouter()
 settings = get_settings()
@@ -59,6 +69,14 @@ class ScweetRunRequest(BaseModel):
 
 class WatchAccountRequest(BaseModel):
     handle: str = Field(..., min_length=1, max_length=256)
+
+
+class SpiderFootScanRequest(BaseModel):
+    scan_name: str = Field(default="", max_length=256)
+    target: str = Field(..., min_length=1, max_length=512)
+    usecase: str = Field(default="passive")
+    module_list: str = Field(default="")
+    type_list: str = Field(default="")
 
 
 @router.get("/health")
@@ -306,4 +324,79 @@ def post_draft_endpoint(draft_id: int, db: Session = Depends(get_db)) -> dict:
     result = post_draft_to_x(db, draft)
     if not result.get("success"):
         raise HTTPException(status_code=403, detail=result.get("error", "Posting failed"))
+    return result
+
+
+@router.get("/health/spiderfoot")
+def spiderfoot_health() -> dict:
+    """SpiderFoot web server readiness."""
+    return {"spiderfoot": get_spiderfoot_health()}
+
+
+@router.get("/spiderfoot/scans")
+def spiderfoot_list_scans() -> dict:
+    return list_spiderfoot_scans()
+
+
+@router.get("/spiderfoot/scans/{scan_id}")
+def spiderfoot_get_scan(scan_id: str) -> dict:
+    result = get_spiderfoot_scan(scan_id)
+    if not result.get("ok"):
+        raise HTTPException(status_code=404, detail=result.get("error", "Scan not found"))
+    return result
+
+
+@router.get("/spiderfoot/scans/{scan_id}/results")
+def spiderfoot_scan_results(
+    scan_id: str,
+    event_type: str = "",
+    unique: bool = False,
+    limit: int = 500,
+) -> dict:
+    result = get_spiderfoot_scan_results(
+        scan_id,
+        event_type=event_type,
+        unique=unique,
+        limit=limit,
+    )
+    if not result.get("ok"):
+        raise HTTPException(status_code=502, detail=result.get("error", "Results unavailable"))
+    return result
+
+
+@router.post("/spiderfoot/scans")
+def spiderfoot_start_scan(body: SpiderFootScanRequest) -> dict:
+    result = start_spiderfoot_scan(
+        scan_name=body.scan_name,
+        target=body.target,
+        usecase=body.usecase,
+        module_list=body.module_list,
+        type_list=body.type_list,
+    )
+    if not result.get("ok"):
+        raise HTTPException(status_code=400, detail=result.get("error", "Scan failed to start"))
+    return result
+
+
+@router.post("/spiderfoot/scans/{scan_id}/stop")
+def spiderfoot_stop_scan(scan_id: str) -> dict:
+    result = stop_spiderfoot_scan(scan_id)
+    if not result.get("ok"):
+        raise HTTPException(status_code=502, detail=result.get("error", "Stop failed"))
+    return {"ok": True, "data": result.get("data")}
+
+
+@router.delete("/spiderfoot/scans/{scan_id}")
+def spiderfoot_delete_scan(scan_id: str) -> dict:
+    result = delete_spiderfoot_scan(scan_id)
+    if not result.get("ok"):
+        raise HTTPException(status_code=502, detail=result.get("error", "Delete failed"))
+    return {"ok": True, "data": result.get("data")}
+
+
+@router.get("/spiderfoot/modules")
+def spiderfoot_modules() -> dict:
+    result = list_spiderfoot_modules()
+    if not result.get("ok"):
+        raise HTTPException(status_code=502, detail=result.get("error", "Modules unavailable"))
     return result

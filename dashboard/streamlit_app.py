@@ -26,6 +26,7 @@ from dashboard.ingestion_ui import render_ingestion_tab
 from dashboard.sidebar_ui import render_app_sidebar
 from dashboard.metrics_cache import load_metrics
 from dashboard.scweet_ui import render_scweet_tab
+from dashboard.spiderfoot_ui import render_spiderfoot_tab
 from dashboard.styles import CUSTOM_CSS
 from dashboard.ui_components import (
     drafts_to_dataframe,
@@ -185,7 +186,7 @@ def main() -> None:
             unsafe_allow_html=True,
         )
 
-    tab_overview, tab_raw, tab_incidents, tab_drafts, tab_ingestion, tab_scweet, tab_system = st.tabs(
+    tab_overview, tab_raw, tab_incidents, tab_drafts, tab_ingestion, tab_scweet, tab_spiderfoot, tab_system = st.tabs(
         [
             "Overview",
             "Raw News",
@@ -193,6 +194,7 @@ def main() -> None:
             "Drafts",
             "Data Ingestion",
             "X explorer",
+            "SpiderFoot",
             "System Status",
         ]
     )
@@ -260,6 +262,13 @@ def main() -> None:
             base_url,
             health_ok=health["ok"],
             raw_df=raw_df,
+        )
+
+    with tab_spiderfoot:
+        render_spiderfoot_tab(
+            backend,
+            base_url,
+            health_ok=health["ok"],
         )
 
     with tab_system:

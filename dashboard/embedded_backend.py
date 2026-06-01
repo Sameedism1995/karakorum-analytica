@@ -460,3 +460,72 @@ def run_scweet_operation(
         return {"ok": False, "error": str(exc)}
     finally:
         db.close()
+
+
+def get_spiderfoot_status(base_url: str = "") -> dict[str, Any]:
+    from app.services.spiderfoot_service import get_spiderfoot_health
+
+    return {"ok": True, "data": {"spiderfoot": get_spiderfoot_health()}}
+
+
+def list_spiderfoot_scans(base_url: str = "") -> dict[str, Any]:
+    from app.services.spiderfoot_service import list_scans
+
+    return list_scans()
+
+
+def get_spiderfoot_scan(base_url: str = "", scan_id: str = "") -> dict[str, Any]:
+    from app.services.spiderfoot_service import get_scan
+
+    return get_scan(scan_id)
+
+
+def get_spiderfoot_scan_results(
+    base_url: str = "",
+    scan_id: str = "",
+    *,
+    event_type: str = "",
+    unique: bool = False,
+    limit: int = 500,
+) -> dict[str, Any]:
+    from app.services.spiderfoot_service import get_scan_results
+
+    return get_scan_results(scan_id, event_type=event_type, unique=unique, limit=limit)
+
+
+def start_spiderfoot_scan(
+    base_url: str = "",
+    *,
+    scan_name: str = "",
+    target: str = "",
+    usecase: str = "passive",
+    module_list: str = "",
+    type_list: str = "",
+) -> dict[str, Any]:
+    from app.services.spiderfoot_service import start_scan
+
+    return start_scan(
+        scan_name=scan_name,
+        target=target,
+        usecase=usecase,
+        module_list=module_list,
+        type_list=type_list,
+    )
+
+
+def stop_spiderfoot_scan(base_url: str = "", scan_id: str = "") -> dict[str, Any]:
+    from app.services.spiderfoot_service import stop_scan
+
+    return stop_scan(scan_id)
+
+
+def delete_spiderfoot_scan(base_url: str = "", scan_id: str = "") -> dict[str, Any]:
+    from app.services.spiderfoot_service import delete_scan
+
+    return delete_scan(scan_id)
+
+
+def list_spiderfoot_modules(base_url: str = "") -> dict[str, Any]:
+    from app.services.spiderfoot_service import list_modules
+
+    return list_modules()

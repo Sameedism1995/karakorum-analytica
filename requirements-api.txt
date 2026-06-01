@@ -17,3 +17,5 @@ psycopg[binary]
 supabase
 # Scweet X search (vendored submodule)
 -r requirements-scweet.txt
+# SpiderFoot OSINT (cloned at build time)
+-r requirements-spiderfoot.txt
