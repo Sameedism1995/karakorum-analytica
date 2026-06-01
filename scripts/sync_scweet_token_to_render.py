@@ -53,6 +53,11 @@ def _parse_args() -> argparse.Namespace:
         action="store_true",
         help="Same as --refresh (for cron: always login and sync)",
     )
+    parser.add_argument(
+        "--no-local-env",
+        action="store_true",
+        help="Do not write SCWEET_AUTH_TOKEN to .env (for CI)",
+    )
     return parser.parse_args()
 
 
@@ -67,6 +72,7 @@ def main() -> int:
             if_expiring_within_hours=None if force else args.if_expiring_within,
             skip_render=args.skip_render,
             deploy=args.deploy,
+            update_env=not args.no_local_env,
         )
     except Exception as exc:
         print(f"Sync failed: {exc}")

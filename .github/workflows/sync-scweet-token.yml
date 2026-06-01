@@ -1,0 +1,48 @@
+name: Sync Scweet token to Render
+
+on:
+  schedule:
+    # Every 8 hours — session TTL is ~12h
+    - cron: "0 */8 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sync-scweet-token:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-api.txt
+          bash scripts/install_playwright.sh
+
+      - name: Refresh X session and sync to Render
+        env:
+          SCWEET_ENABLED: "true"
+          SCWEET_USERNAME: ${{ secrets.SCWEET_USERNAME }}
+          SCWEET_PASSWORD: ${{ secrets.SCWEET_PASSWORD }}
+          SCWEET_EMAIL: ${{ secrets.SCWEET_EMAIL }}
+          SCWEET_AUTO_LOGIN: "true"
+          SCWEET_LOGIN_HEADLESS: "true"
+          SCWEET_SESSION_CACHE_PATH: data/scweet_session.json
+          SCWEET_DB_PATH: data/scweet_state.db
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_SCWEET_SERVICE_NAMES: karakorum-analytica-api,karakorum-analytica-dashboard
+        run: |
+          python scripts/sync_scweet_token_to_render.py --always-refresh --deploy --no-local-env

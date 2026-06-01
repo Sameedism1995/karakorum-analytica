@@ -95,6 +95,25 @@ curl https://karakorum-analytica-api.onrender.com/
 
 ---
 
+## Scweet token auto-sync (GitHub Actions)
+
+A scheduled workflow refreshes the X session and pushes `SCWEET_AUTH_TOKEN` to Render every **8 hours**.
+
+**Setup:** GitHub repo → **Settings → Secrets and variables → Actions** → add:
+
+| Secret | Value |
+|--------|--------|
+| `RENDER_API_KEY` | From [Render API Keys](https://dashboard.render.com/u/settings#api-keys) |
+| `SCWEET_USERNAME` | `kkanalytica` |
+| `SCWEET_PASSWORD` | Your X password |
+| `SCWEET_EMAIL` | Optional — if X asks for email during login |
+
+**Manual run:** Actions → **Sync Scweet token to Render** → **Run workflow**
+
+**Local alternative:** `bash scripts/install_scweet_token_cron.sh` (requires Mac awake + `RENDER_API_KEY` in `.env`)
+
+---
+
 ## Safety
 
 - `X_POSTING_ENABLED=false` by default
