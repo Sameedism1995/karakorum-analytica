@@ -42,7 +42,9 @@ Supabase setup checklist
 4. Run this script again:  python scripts/setup_supabase.py
 5. On Render: add the same three env vars to karakorum-analytica-api → Environment → redeploy.
 
-Optional: run supabase/schema.sql in Supabase → SQL Editor instead of this script.
+Optional: run supabase/schema.sql in Supabase → SQL Editor, or:
+  python scripts/apply_supabase_migrations.py
+  supabase db push
 """
 
 
@@ -55,7 +57,12 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--apply-sql",
         action="store_true",
-        help="Also run supabase/schema.sql via psycopg (tables are created by bootstrap by default)",
+        help="Run supabase/schema.sql via Postgres (full schema snapshot)",
+    )
+    parser.add_argument(
+        "--apply-migrations",
+        action="store_true",
+        help="Run all supabase/migrations/*.sql in order via Postgres",
     )
     return parser.parse_args()
 
@@ -141,6 +148,19 @@ def main() -> int:
         return 1
 
     print("Database connection: OK")
+
+    if args.apply_migrations:
+        import importlib.util
+
+        migration_path = ROOT / "scripts" / "apply_supabase_migrations.py"
+        spec = importlib.util.spec_from_file_location("apply_supabase_migrations", migration_path)
+        if spec is None or spec.loader is None:
+            print(f"Could not load {migration_path}")
+            return 1
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        if mod.apply_migrations(settings.effective_database_url) != 0:
+            return 1
 
     if args.apply_sql:
         _apply_schema_sql(settings.effective_database_url)

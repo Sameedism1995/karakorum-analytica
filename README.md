@@ -57,7 +57,9 @@ SUPABASE_DB_URL=postgresql://postgres:YOUR_PASSWORD@db.YOUR_PROJECT_REF.supabase
 5. Initialize tables:
 
 ```bash
-python scripts/init_db.py
+python scripts/setup_supabase.py --apply-migrations
+# or: supabase db push
+# or: python scripts/init_db.py
 ```
 
 Or run `supabase/schema.sql` in the Supabase SQL Editor.
