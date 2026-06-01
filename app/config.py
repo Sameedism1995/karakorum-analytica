@@ -275,7 +275,8 @@ class Settings(BaseSettings):
         password_enc, ref = match.group(1), match.group(2)
         password = unquote_plus(password_enc)
         user = f"postgres.{ref}"
-        host = f"aws-0-{region}.pooler.supabase.com"
+        # Supabase shared pooler — newer projects use aws-1-{region} (not aws-0).
+        host = f"aws-1-{region}.pooler.supabase.com"
         return f"postgresql://{user}:{quote_plus(password)}@{host}:5432/postgres"
 
     @staticmethod

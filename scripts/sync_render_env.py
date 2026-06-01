@@ -69,6 +69,13 @@ def main() -> int:
         print("ERROR: SUPABASE_DB_URL is not set in .env", file=sys.stderr)
         return 1
 
+    if os.environ.get("RENDER") and not os.environ.get("SUPABASE_DB_POOLER_URL", "").strip():
+        print(
+            "WARNING: SUPABASE_DB_POOLER_URL is not set — Render cannot use direct Postgres (IPv6).",
+            file=sys.stderr,
+        )
+        print("  Run: python scripts/discover_supabase_pooler.py --write-env --deploy", file=sys.stderr)
+
     try:
         keys = sync_env_to_render(deploy=args.deploy)
     except Exception as exc:

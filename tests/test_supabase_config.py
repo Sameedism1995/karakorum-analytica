@@ -72,7 +72,7 @@ def test_effective_database_url_builds_pooler_from_region(monkeypatch):
         supabase_pooler_region="ap-south-1",
     )
     url = settings.effective_database_url
-    assert "aws-0-ap-south-1.pooler.supabase.com" in url
+    assert "aws-1-ap-south-1.pooler.supabase.com" in url
     assert "postgres.abc123" in url
 
 
