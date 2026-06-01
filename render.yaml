@@ -7,7 +7,7 @@ services:
     name: karakorum-analytica-api
     runtime: python
     plan: free
-    buildCommand: git submodule update --init --recursive && pip install -r requirements-api.txt && playwright install chromium
+    buildCommand: bash scripts/render_build_api.sh
     startCommand: bash scripts/start_api.sh
     healthCheckPath: /health
     envVars:
@@ -78,7 +78,7 @@ services:
     name: karakorum-analytica-dashboard
     runtime: python
     plan: free
-    buildCommand: git submodule update --init --recursive && pip install -r requirements.txt && playwright install chromium
+    buildCommand: bash scripts/render_build_dashboard.sh
     startCommand: bash scripts/start_dashboard.sh
     healthCheckPath: /_stcore/health
     envVars:

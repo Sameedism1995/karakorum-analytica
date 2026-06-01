@@ -19,5 +19,6 @@ supabase
 # Embedded collection (dashboard imports collection_service → RSS scraper)
 feedparser
 tenacity
+playwright
 # Scweet X search (vendored submodule)
 -r requirements-scweet.txt

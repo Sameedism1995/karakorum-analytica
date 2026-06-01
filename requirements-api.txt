@@ -12,6 +12,7 @@ tweepy
 requests
 feedparser
 tenacity
+playwright
 psycopg[binary]
 supabase
 # Scweet X search (vendored submodule)
