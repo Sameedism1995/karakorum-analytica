@@ -10,6 +10,7 @@ from loguru import logger
 from app.config import get_settings
 from app.integrations.playwright_env import (
     effective_playwright_headless,
+    is_server_runtime,
     playwright_login_allowed,
 )
 from app.integrations.x_session_login import get_or_create_x_session, load_cached_session
@@ -99,6 +100,8 @@ def scweet_settings_summary() -> dict[str, Any]:
         "db_path": str(db_path),
         "db_exists": db_path.is_file(),
         "query_count": len(settings.scweet_search_queries_list),
+        "playwright_login_allowed": playwright_login_allowed(),
+        "server_runtime": is_server_runtime(),
     }
 
 

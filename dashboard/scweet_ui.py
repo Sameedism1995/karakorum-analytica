@@ -176,16 +176,21 @@ def _render_session_tab(
     scweet: dict[str, Any],
 ) -> None:
     st.markdown("**Connection**")
+    server = bool(scweet.get("server_runtime"))
+    pw_ok = scweet.get("playwright_login_allowed", not server)
     c1, c2 = st.columns([1, 3])
     with c1:
-        if st.button("Connect / refresh session", type="primary", use_container_width=True):
-            with st.spinner("Logging into X (complete verification if prompted)…"):
-                result = backend.refresh_scweet_session(base_url, force=True)
-            if result.get("ok"):
-                st.success(result.get("message") or "Session refreshed.")
-                st.rerun()
-            else:
-                st.error(result.get("error") or "Session refresh failed.")
+        if server or not pw_ok:
+            st.caption("Playwright login is disabled on this host.")
+        else:
+            if st.button("Connect / refresh session", type="primary", use_container_width=True):
+                with st.spinner("Logging into X (complete verification if prompted)…"):
+                    result = backend.refresh_scweet_session(base_url, force=True)
+                if result.get("ok"):
+                    st.success(result.get("message") or "Session refreshed.")
+                    st.rerun()
+                else:
+                    st.error(result.get("error") or "Session refresh failed.")
 
     with c2:
         st.markdown(
@@ -195,12 +200,19 @@ def _render_session_tab(
             f"- DB: `{scweet.get('db_path', '—')}`\n"
             f"- Default pipeline query: see Search tab"
         )
-        if scweet.get("has_auth_token") and not scweet.get("auto_login"):
+        if server:
+            st.warning(
+                "This dashboard runs on **Render/production** — X login via Playwright is not available here. "
+                "On your **local machine**, run:\n\n"
+                "`python scripts/sync_scweet_token_to_render.py --deploy --write-env`\n\n"
+                "Optional cron (every 10h): `bash scripts/install_scweet_token_cron.sh`"
+            )
+        elif scweet.get("has_auth_token") and not scweet.get("auto_login"):
             st.info(
-                "Using **SCWEET_AUTH_TOKEN** (no Playwright on server). "
-                "Auto-sync: GitHub Actions (every 8h), "
-                "`python scripts/sync_scweet_token_to_render.py`, or "
-                "`bash scripts/install_scweet_token_cron.sh`."
+                "Using **SCWEET_AUTH_TOKEN** (no Playwright). "
+                "Push to Render with "
+                "`python scripts/sync_scweet_token_to_render.py --deploy` "
+                "or `bash scripts/install_scweet_token_cron.sh`."
             )
 
     st.divider()

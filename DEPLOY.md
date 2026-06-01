@@ -95,22 +95,35 @@ curl https://karakorum-analytica-api.onrender.com/
 
 ---
 
-## Scweet token auto-sync (GitHub Actions)
+## Scweet token handoff (Render production)
 
-A scheduled workflow refreshes the X session and pushes `SCWEET_AUTH_TOKEN` to Render every **8 hours**.
+Render has **no display** — Playwright login cannot run there. Production uses `SCWEET_AUTH_TOKEN` injected via the Render API from your **local machine only** (no GitHub Actions).
 
-**Setup:** GitHub repo → **Settings → Secrets and variables → Actions** → add:
+### Local sync script
 
-| Secret | Value |
-|--------|--------|
-| `RENDER_API_KEY` | From [Render API Keys](https://dashboard.render.com/u/settings#api-keys) |
-| `SCWEET_USERNAME` | `kkanalytica` |
-| `SCWEET_PASSWORD` | Your X password |
-| `SCWEET_EMAIL` | Optional — if X asks for email during login |
+```bash
+# .env required:
+#   RENDER_API_KEY=rnd_...
+#   RENDER_SERVICE_IDS=srv-api-id,srv-dashboard-id
 
-**Manual run:** Actions → **Sync Scweet token to Render** → **Run workflow**
+python scripts/sync_scweet_token_to_render.py --deploy --write-env
+```
 
-**Local alternative:** `bash scripts/install_scweet_token_cron.sh` (requires Mac awake + `RENDER_API_KEY` in `.env`)
+The script:
+1. Reads `data/scweet_state.db` (Scweet `accounts` table)
+2. Extracts the active `auth_token` (or from `cookies_json`)
+3. Calls Render API: `PUT https://api.render.com/v1/services/{service_id}/env-vars/SCWEET_AUTH_TOKEN`
+4. Sets `SCWEET_AUTO_LOGIN=false` and `SCWEET_ENABLED=true`
+
+### Local cron (every 10 hours)
+
+```bash
+bash scripts/install_scweet_token_cron.sh
+```
+
+Logs: `logs/scweet-token-sync.log`
+
+Ensure `data/scweet_state.db` stays populated by using Scweet locally (`python scripts/scweet_login.py` or dashboard X/Scweet tab).
 
 ---
 

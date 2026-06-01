@@ -81,6 +81,8 @@ class Settings(BaseSettings):
     render_scweet_service_names: str = (
         "karakorum-analytica-api,karakorum-analytica-dashboard"
     )
+    # Optional comma-separated Render service IDs (srv-...) — skips name lookup when set
+    render_scweet_service_ids: str = ""
 
     # LLM newsroom (optional — placeholder templates used when unset)
     llm_provider: str = "placeholder"
@@ -96,6 +98,16 @@ class Settings(BaseSettings):
             name.strip()
             for name in self.render_scweet_service_names.replace("\n", ",").split(",")
             if name.strip()
+        ]
+
+    @property
+    def render_scweet_service_ids_list(self) -> list[str]:
+        if not self.render_scweet_service_ids.strip():
+            return []
+        return [
+            sid.strip()
+            for sid in self.render_scweet_service_ids.replace("\n", ",").split(",")
+            if sid.strip()
         ]
 
     @property

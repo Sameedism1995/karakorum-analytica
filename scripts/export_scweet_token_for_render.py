@@ -47,7 +47,7 @@ def main() -> int:
     print("SCWEET_AUTO_LOGIN=false")
     print(f"\nSession expires: {expires}")
     print("\nAutomate with:")
-    print("  python scripts/sync_scweet_token_to_render.py --refresh")
+    print("  python scripts/sync_scweet_token_to_render.py --deploy --write-env")
     print("  bash scripts/install_scweet_token_cron.sh")
     return 0
 

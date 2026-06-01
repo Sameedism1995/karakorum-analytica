@@ -29,8 +29,8 @@ def playwright_login_allowed() -> bool:
 def playwright_login_blocked_message() -> str:
     return (
         "Playwright X login is not available on Render/production. "
-        "Set SCWEET_AUTH_TOKEN on the service (sync via GitHub Actions or "
-        "python scripts/sync_scweet_token_to_render.py)."
+        "Set SCWEET_AUTH_TOKEN on the service — from your machine run: "
+        "python scripts/sync_scweet_token_to_render.py --deploy --write-env"
     )
 
 

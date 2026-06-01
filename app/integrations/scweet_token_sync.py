@@ -10,7 +10,13 @@ from typing import Any
 from loguru import logger
 
 from app.config import get_settings
-from app.integrations.render_client import RenderApiError, resolve_service_ids, trigger_deploy, update_env_var
+from app.integrations.render_client import (
+    RenderApiError,
+    resolve_service_targets,
+    trigger_deploy,
+    update_env_var,
+)
+from app.integrations.scweet_token_source import resolve_local_auth_token, token_source_summary
 from app.integrations.playwright_env import effective_playwright_headless, playwright_login_allowed
 from app.integrations.scweet_client import _scweet_login_id, build_scweet_client, resolve_scweet_auth_token
 from app.integrations.x_session_login import SESSION_TTL_HOURS, get_or_create_x_session, load_cached_session
@@ -76,7 +82,8 @@ def refresh_local_session(*, force: bool = False) -> str:
 
     if not playwright_login_allowed():
         raise RuntimeError(
-            "Playwright X login is disabled on this server. Run sync locally or via GitHub Actions."
+            "Playwright X login is disabled on this server. "
+            "Run: python scripts/sync_scweet_token_to_render.py --deploy"
         )
 
     login = _scweet_login_id(settings)
@@ -107,26 +114,31 @@ def sync_token_to_render(
     token: str,
     *,
     service_names: list[str] | None = None,
+    service_ids: list[str] | None = None,
     deploy: bool = False,
 ) -> list[str]:
     """Push SCWEET_AUTH_TOKEN to configured Render services."""
     settings = get_settings()
-    names = service_names or settings.render_scweet_service_names_list
-    if not names:
-        raise RenderApiError("No Render service names configured (RENDER_SCWEET_SERVICE_NAMES)")
+    names = service_names if service_names is not None else settings.render_scweet_service_names_list
+    ids = service_ids if service_ids is not None else settings.render_scweet_service_ids_list
 
-    service_ids = resolve_service_ids(names)
+    targets = resolve_service_targets(service_names=names, service_ids=ids)
+    if not targets:
+        raise RenderApiError(
+            "No Render targets configured. Set RENDER_SCWEET_SERVICE_IDS or RENDER_SCWEET_SERVICE_NAMES."
+        )
+
     updated: list[str] = []
 
-    for name, service_id in service_ids.items():
+    for label, service_id in targets.items():
         update_env_var(service_id, "SCWEET_AUTH_TOKEN", token)
         update_env_var(service_id, "SCWEET_AUTO_LOGIN", "false")
         update_env_var(service_id, "SCWEET_ENABLED", "true")
-        logger.info(f"Updated SCWEET_AUTH_TOKEN on Render service {name} ({service_id})")
-        updated.append(name)
+        logger.info(f"Updated SCWEET_AUTH_TOKEN on Render service {label} ({service_id})")
+        updated.append(label)
         if deploy:
             trigger_deploy(service_id)
-            logger.info(f"Triggered deploy for {name}")
+            logger.info(f"Triggered deploy for {label}")
 
     return updated
 
@@ -150,10 +162,12 @@ def run_sync(
     cached = read_cached_session(cache_path)
     if needs_refresh:
         token = refresh_local_session(force=True)
+        source = "playwright_refresh"
     else:
-        token = settings.scweet_auth_token.strip() or str((cached or {}).get("auth_token") or "")
+        token, source = resolve_local_auth_token()
         if not token:
             token = refresh_local_session(force=True)
+            source = "playwright_refresh"
 
     if update_env:
         update_local_env(token)
@@ -162,6 +176,7 @@ def run_sync(
     result: dict[str, Any] = {
         "ok": True,
         "refreshed": needs_refresh,
+        "token_source": source,
         "token_length": len(token),
         "expires_at": expires.isoformat() if expires else None,
         "render_services": [],
@@ -171,6 +186,58 @@ def run_sync(
         result["render_skipped"] = True
         return result
 
+    if not settings.render_api_key.strip():
+        result["render_skipped"] = True
+        result["render_note"] = "Set RENDER_API_KEY in .env to auto-sync to Render"
+        return result
+
+    result["render_services"] = sync_token_to_render(token, deploy=deploy)
+    return result
+
+
+def run_sync_only(
+    *,
+    skip_render: bool = False,
+    deploy: bool = False,
+    update_env: bool = True,
+) -> dict[str, Any]:
+    """
+    Push existing local token to Render without Playwright login.
+
+    Reads from SCWEET_AUTH_TOKEN, data/scweet_session.json, or data/scweet_state.db.
+    """
+    token, source = resolve_local_auth_token()
+    if not token:
+        summary = token_source_summary()
+        raise RuntimeError(
+            "No local auth token found. Sources checked: SCWEET_AUTH_TOKEN env, "
+            f"{summary['session_cache_path']}, {summary['scweet_db_path']}. "
+            "Run local login: python scripts/scweet_login.py --refresh"
+        )
+
+    if update_env:
+        update_local_env(token)
+
+    result: dict[str, Any] = {
+        "ok": True,
+        "refreshed": False,
+        "sync_only": True,
+        "token_source": source,
+        "token_length": len(token),
+        "expires_at": None,
+        "render_services": [],
+        "token_sources": token_source_summary(),
+    }
+
+    expires = session_expires_at()
+    if expires:
+        result["expires_at"] = expires.isoformat()
+
+    if skip_render:
+        result["render_skipped"] = True
+        return result
+
+    settings = get_settings()
     if not settings.render_api_key.strip():
         result["render_skipped"] = True
         result["render_note"] = "Set RENDER_API_KEY in .env to auto-sync to Render"

@@ -84,6 +84,26 @@ def resolve_service_ids(service_names: list[str]) -> dict[str, str]:
     return found
 
 
+def resolve_service_targets(
+    *,
+    service_names: list[str] | None = None,
+    service_ids: list[str] | None = None,
+) -> dict[str, str]:
+    """
+    Map display label → Render service ID.
+
+    Uses explicit service IDs when provided; otherwise resolves by service name.
+    """
+    ids = [sid.strip() for sid in (service_ids or []) if sid and sid.strip()]
+    if ids:
+        return {sid: sid for sid in ids}
+
+    names = [name.strip() for name in (service_names or []) if name and name.strip()]
+    if not names:
+        return {}
+    return resolve_service_ids(names)
+
+
 def update_env_var(service_id: str, key: str, value: str) -> None:
     """Create or update a single environment variable on a Render service."""
     with httpx.Client(timeout=30.0) as client:
