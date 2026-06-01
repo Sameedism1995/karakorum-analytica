@@ -4,13 +4,11 @@ from __future__ import annotations
 
 import os
 import sys
-import time
 from datetime import datetime, timezone
 from pathlib import Path
 from types import ModuleType
 
 import streamlit as st
-from streamlit_autorefresh import st_autorefresh
 
 ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
@@ -22,8 +20,8 @@ bootstrap_env(ROOT)
 
 from dashboard import api_client, embedded_backend
 from dashboard.branding import BRAND_NAME, LOGO_PATH, render_sidebar_logo
-from dashboard.collection_ui import is_monitoring_collection, render_collection_progress
 from dashboard.ingestion_ui import render_ingestion_tab
+from dashboard.sidebar_ui import render_app_sidebar
 from dashboard.metrics_cache import load_metrics
 from dashboard.scweet_ui import render_scweet_tab
 from dashboard.styles import CUSTOM_CSS
@@ -41,13 +39,6 @@ from dashboard.ui_components import (
     render_raw_news_cards,
     render_system_status,
 )
-
-REFRESH_OPTIONS = {
-    "Off": 0,
-    "30 seconds": 30,
-    "1 minute": 60,
-    "5 minutes": 300,
-}
 
 LOCAL_API_URL = api_client.resolve_base_url("http://127.0.0.1:8000")
 
@@ -152,97 +143,21 @@ def main() -> None:
     inject_styles(CUSTOM_CSS)
     render_header()
 
-    backend, backend_label, embedded = _choose_backend()
+    backend, _backend_label, embedded = _choose_backend()
     base_url = "" if embedded else (_configured_api_url() or LOCAL_API_URL)
+
+    health = backend.check_backend(base_url)
 
     with st.sidebar:
         render_sidebar_logo()
-        st.markdown("### Controls")
-
-        if embedded:
-            if _on_render():
-                st.warning(
-                    "**Embedded on Render** — the API is asleep or unreachable. "
-                    "Data only persists if **SUPABASE_DB_URL** and **SCWEET_AUTH_TOKEN** "
-                    "are set on this dashboard service (same as the API)."
-                )
-                if st.button("Retry API connection", use_container_width=True):
-                    st.rerun()
-            else:
-                st.info(
-                    "Running in **embedded mode** — collection runs inside this app."
-                )
-            st.text_input("Backend mode", value=backend_label, disabled=True)
-            if embedded and hasattr(backend, "get_database_status"):
-                db_info = backend.get_database_status()
-                if db_info.get("ok"):
-                    backend_name = db_info.get("backend", "unknown")
-                    persistent = db_info.get("persistent") or db_info.get("using_supabase")
-                    pill = "status-connected" if persistent else "status-disconnected"
-                    st.markdown(
-                        f'<span class="status-pill {pill}">DB: {backend_name}</span>',
-                        unsafe_allow_html=True,
-                    )
-                    if not persistent:
-                        st.caption("Ephemeral DB — set SUPABASE_DB_URL on Render.")
-                else:
-                    st.error(db_info.get("error") or "Database not connected")
-        else:
-            st.text_input(
-                "API base URL",
-                value=base_url,
-                disabled=_is_streamlit_cloud(),
-                help="FastAPI backend address",
-            )
-
-        refresh_label = st.selectbox(
-            "Auto-refresh",
-            list(REFRESH_OPTIONS.keys()),
-            index=0,
-        )
-        refresh_seconds = REFRESH_OPTIONS[refresh_label]
-
-        st.caption("Collect data from **Data Ingestion** tab (API sources or X accounts).")
-
-        if is_monitoring_collection() and render_collection_progress(backend, base_url):
+        if render_app_sidebar(
+            backend,
+            base_url,
+            embedded=embedded,
+            health=health,
+            on_render=_on_render(),
+        ):
             st.rerun()
-
-        health = backend.check_backend(base_url)
-        connected = health.get("ok", False)
-
-        st.markdown('<div class="sidebar-status-box">', unsafe_allow_html=True)
-        if connected:
-            label = "Embedded backend active" if embedded else "Backend connected"
-            st.markdown(
-                f'<span class="status-pill status-connected">{label}</span>',
-                unsafe_allow_html=True,
-            )
-        else:
-            st.markdown(
-                '<span class="status-pill status-disconnected">Backend not connected</span>',
-                unsafe_allow_html=True,
-            )
-            err = health.get("detail") or health.get("error")
-            if err and err != "not_found":
-                st.caption(err)
-            if embedded:
-                st.caption("Try rebooting the app from Streamlit Cloud manage menu.")
-        st.markdown("</div>", unsafe_allow_html=True)
-
-        if _is_streamlit_cloud() and not embedded:
-            st.link_button(
-                "Deploy API on Render",
-                "https://render.com/deploy?repo=https://github.com/Sameedism1995/karakorum-analytica",
-                use_container_width=True,
-            )
-
-        st.divider()
-        st.caption("Human review only · No auto-posting by default · GDELT · ReliefWeb · ACLED · Scweet")
-
-    if refresh_seconds > 0:
-        st_autorefresh(interval=refresh_seconds * 1000, key="dashboard_autorefresh")
-
-    health = backend.check_backend(base_url)
     raw_items = backend.get_raw_news(base_url) if health["ok"] else []
     incident_items = backend.get_incidents(base_url) if health["ok"] else []
     draft_items = backend.get_drafts(base_url) if health["ok"] else []

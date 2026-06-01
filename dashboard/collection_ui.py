@@ -37,6 +37,20 @@ def _format_events(events: list[dict[str, Any]]) -> str:
     return "\n".join(lines)
 
 
+def _poll_collection_status(
+    backend: ModuleType,
+    base_url: str,
+) -> tuple[dict[str, Any] | None, bool]:
+    """Return (status payload, should_stop_monitoring)."""
+    if not hasattr(backend, "get_collection_status"):
+        return None, True
+
+    status_resp = backend.get_collection_status(base_url)
+    if not status_resp.get("ok"):
+        return None, True
+    return status_resp.get("data") or {}, False
+
+
 def render_collection_progress(
     backend: ModuleType,
     base_url: str,
@@ -50,28 +64,64 @@ def render_collection_progress(
 
     st.markdown('<div class="section-title">Collection progress</div>', unsafe_allow_html=True)
 
-    if not hasattr(backend, "get_collection_status"):
+    data, stop = _poll_collection_status(backend, base_url)
+    if stop or data is None:
         st.warning("Progress tracking is unavailable in this backend mode.")
         stop_collection_monitor()
         return False
 
-    status_resp = backend.get_collection_status(base_url)
-    if not status_resp.get("ok"):
-        st.error(status_resp.get("error") or "Could not read collection status.")
-        stop_collection_monitor()
-        return False
+    return _render_progress_block(backend, base_url, data, show_log=True)
 
-    data = status_resp.get("data") or {}
+
+def render_sidebar_ingestion_progress(
+    backend: ModuleType,
+    base_url: str,
+) -> bool:
+    """
+    Compact pipeline progress for the sidebar (under Re-run full ingestion pipeline).
+    """
+    if is_monitoring_collection():
+        data, stop = _poll_collection_status(backend, base_url)
+        if stop or data is None:
+            st.warning("Pipeline status unavailable.")
+            stop_collection_monitor()
+            return False
+        return _render_progress_block(backend, base_url, data, show_log=False)
+
+    last = st.session_state.get(COLLECTION_STATUS_KEY)
+    if last and last.get("status") == "completed":
+        collection = (last.get("result") or {}).get("collection") or {}
+        st.caption(
+            f"Last run: saved {collection.get('saved', 0)} articles · "
+            f"{(last.get('result') or {}).get('incidents', {}).get('incidents_created', 0)} incidents"
+        )
+    elif last and last.get("status") == "failed":
+        st.caption(f"Last run failed: {(last.get('error') or 'unknown')[:80]}")
+    else:
+        st.caption("Idle — press the button above to ingest all sources.")
+    return False
+
+
+def _render_progress_block(
+    backend: ModuleType,
+    base_url: str,
+    data: dict[str, Any],
+    *,
+    show_log: bool,
+) -> bool:
     progress = int(data.get("progress") or 0)
     step_label = data.get("step_label") or data.get("step") or "Running"
     state = data.get("status", "idle")
     events = data.get("events") or []
 
     st.progress(progress / 100, text=f"{step_label} · {progress}%")
-    st.markdown(
-        f'<div class="collection-log">{_format_events(events)}</div>',
-        unsafe_allow_html=True,
-    )
+    if show_log:
+        st.markdown(
+            f'<div class="collection-log">{_format_events(events)}</div>',
+            unsafe_allow_html=True,
+        )
+    elif events:
+        st.caption(events[-1].get("message", "")[:120])
 
     if state == "running":
         time.sleep(1.5)
@@ -92,14 +142,14 @@ def render_collection_progress(
             elif data.get("totals"):
                 store_metrics(data["totals"])
         st.success(
-            f"Collection complete — saved {collection.get('saved', 0)}, "
-            f"incidents created {incidents.get('incidents_created', 0)}, "
-            f"drafts created {drafts.get('drafts_created', 0)}."
+            f"Pipeline complete — {collection.get('saved', 0)} saved, "
+            f"{incidents.get('incidents_created', 0)} incidents, "
+            f"{drafts.get('drafts_created', 0)} drafts."
         )
         return True
 
     if state == "failed":
-        st.error(data.get("error") or "Collection failed.")
+        st.error(data.get("error") or "Pipeline failed.")
         return False
 
     return False

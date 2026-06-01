@@ -7,11 +7,6 @@ from typing import Any
 
 import streamlit as st
 
-from dashboard.collection_ui import (
-    handle_run_collection_click,
-    is_monitoring_collection,
-    render_collection_progress,
-)
 from dashboard.scweet_ui import render_x_watch_list
 
 API_SOURCES = [
@@ -137,27 +132,10 @@ def render_api_sources_section(
         st.warning("Fix the connection banners above before running collection.")
         return
 
-    col_run, col_status = st.columns([1, 2])
-    with col_run:
-        if st.button(
-            "Run API collection now",
-            type="primary",
-            use_container_width=True,
-            key="ingestion_run_api_collection",
-            disabled=not db_ready,
-        ):
-            if handle_run_collection_click(backend, base_url):
-                st.rerun()
-
-    with col_status:
-        if not db_ready:
-            st.caption("Database must be connected (Supabase recommended).")
-        elif is_monitoring_collection():
-            st.caption("Collection in progress — see progress below.")
-
-    if is_monitoring_collection():
-        if render_collection_progress(backend, base_url):
-            st.rerun()
+    st.info(
+        "Use **Re-run full ingestion pipeline** in the left sidebar to collect from all API sources "
+        "and watched X accounts. Progress appears under that button."
+    )
 
     st.divider()
     st.markdown("**Source configuration**")

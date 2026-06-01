@@ -18,4 +18,6 @@ class XWatchAccount(Base):
     last_fetched_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     last_tweet_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     last_saved_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    total_tweets_fetched: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    total_tweets_saved: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     last_error: Mapped[str | None] = mapped_column(Text, nullable=True)

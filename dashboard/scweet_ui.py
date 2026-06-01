@@ -419,8 +419,11 @@ def render_x_watch_list(backend: ModuleType, base_url: str) -> None:
         mins_label = entry.get("last_fetched_mins_ago") or "Never"
         saved = entry.get("last_saved_count", 0)
         fetched = entry.get("last_tweet_count", 0)
-        err = entry.get("last_error")
+        total_fetched = entry.get("total_tweets_fetched", 0)
+        total_saved = entry.get("total_tweets_saved", 0)
         posting = entry.get("posting") or {}
+        in_db = posting.get("sample_size", 0)
+        err = entry.get("last_error")
 
         c_handle, c_time, c_fetch, c_remove = st.columns([2, 2, 1, 1])
         with c_handle:
@@ -438,7 +441,11 @@ def render_x_watch_list(backend: ModuleType, base_url: str) -> None:
                 st.caption(f"Last error: {err[:80]}")
         with c_time:
             st.markdown(f"**{mins_label}**")
-            st.caption(f"Last run: {fetched} fetched · {saved} saved")
+            st.caption(f"Last fetch: {fetched} pulled · {saved} new saved")
+            st.caption(
+                f"**Total pulled: {total_fetched}** tweets · **{total_saved}** saved to DB · "
+                f"**{in_db}** posts stored"
+            )
             if posting.get("ready"):
                 st.caption(
                     f"{posting.get('avg_posts_per_day', 0):.1f}/day · "

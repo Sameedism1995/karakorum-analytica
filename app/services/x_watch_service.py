@@ -78,6 +78,8 @@ def watch_account_to_dict(
         "last_fetched_mins_ago": _mins_ago(record.last_fetched_at),
         "last_tweet_count": record.last_tweet_count,
         "last_saved_count": record.last_saved_count,
+        "total_tweets_fetched": record.total_tweets_fetched,
+        "total_tweets_saved": record.total_tweets_saved,
         "last_error": record.last_error,
     }
     if posting is not None:
@@ -198,9 +200,13 @@ def fetch_watch_account(
         }
     persist_stats = persist_scweet_items(db, items, apply_pipeline_filters=False)
 
+    saved_now = int(persist_stats.get("saved", 0))
+    fetched_now = len(items)
     record.last_fetched_at = _utc_now()
-    record.last_tweet_count = len(items)
-    record.last_saved_count = persist_stats.get("saved", 0)
+    record.last_tweet_count = fetched_now
+    record.last_saved_count = saved_now
+    record.total_tweets_fetched = int(record.total_tweets_fetched or 0) + fetched_now
+    record.total_tweets_saved = int(record.total_tweets_saved or 0) + saved_now
     record.last_error = None
     db.commit()
     db.refresh(record)
