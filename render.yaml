@@ -64,7 +64,7 @@ services:
       - key: SCWEET_AUTO_LOGIN
         value: "false"
       - key: SCWEET_LOGIN_HEADLESS
-        sync: false
+        value: "true"
       - key: SCWEET_COOKIES_FILE
         sync: false
       - key: SCWEET_SEARCH_QUERIES

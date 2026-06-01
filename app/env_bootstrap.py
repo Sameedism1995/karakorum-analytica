@@ -39,7 +39,13 @@ def bootstrap_env(root: Path | None = None) -> None:
         os.environ.setdefault("SCWEET_AUTO_LOGIN", "false")
 
     if not os.environ.get("SCWEET_LOGIN_HEADLESS"):
-        os.environ["SCWEET_LOGIN_HEADLESS"] = "false"
+        is_prod = os.environ.get("ENVIRONMENT", "").lower() in {"production", "prod"} or os.environ.get(
+            "APP_ENV", ""
+        ).lower() in {"production", "prod"}
+        is_render = bool(os.environ.get("RENDER"))
+        is_ci = os.environ.get("CI", "").lower() in {"1", "true", "yes"}
+        # Servers have no display — default headless; local dev defaults to visible browser
+        os.environ["SCWEET_LOGIN_HEADLESS"] = "true" if (is_prod or is_render or is_ci) else "false"
 
     if not os.environ.get("SCWEET_SESSION_CACHE_PATH"):
         os.environ["SCWEET_SESSION_CACHE_PATH"] = "data/scweet_session.json"

@@ -11,6 +11,7 @@ from loguru import logger
 
 from app.config import get_settings
 from app.integrations.render_client import RenderApiError, resolve_service_ids, trigger_deploy, update_env_var
+from app.integrations.playwright_env import effective_playwright_headless, playwright_login_allowed
 from app.integrations.scweet_client import _scweet_login_id, build_scweet_client, resolve_scweet_auth_token
 from app.integrations.x_session_login import SESSION_TTL_HOURS, get_or_create_x_session, load_cached_session
 from app.services.scweet_service import refresh_scweet_session
@@ -73,6 +74,11 @@ def refresh_local_session(*, force: bool = False) -> str:
             raise RuntimeError("Login succeeded but auth_token is missing")
         return token
 
+    if not playwright_login_allowed():
+        raise RuntimeError(
+            "Playwright X login is disabled on this server. Run sync locally or via GitHub Actions."
+        )
+
     login = _scweet_login_id(settings)
     password = settings.scweet_password.strip()
     if not login or not password:
@@ -87,7 +93,7 @@ def refresh_local_session(*, force: bool = False) -> str:
         password,
         verification_handle=verification,
         cache_path=settings.scweet_session_cache_path,
-        headless=settings.scweet_login_headless,
+        headless=effective_playwright_headless(settings.scweet_login_headless),
         force_refresh=False,
     )
     token = str(session.get("auth_token") or "")

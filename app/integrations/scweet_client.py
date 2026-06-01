@@ -8,6 +8,10 @@ from typing import Any
 from loguru import logger
 
 from app.config import get_settings
+from app.integrations.playwright_env import (
+    effective_playwright_headless,
+    playwright_login_allowed,
+)
 from app.integrations.x_session_login import get_or_create_x_session, load_cached_session
 from app.scraping.proxy_pool import parse_proxy_urls
 
@@ -59,7 +63,7 @@ def resolve_scweet_auth_token() -> str:
     if not login or not password:
         return ""
 
-    if not settings.scweet_auto_login:
+    if not settings.scweet_auto_login or not playwright_login_allowed():
         return ""
 
     verification = settings.scweet_email.strip() or None
@@ -71,7 +75,7 @@ def resolve_scweet_auth_token() -> str:
         password,
         verification_handle=verification,
         cache_path=settings.scweet_session_cache_path,
-        headless=settings.scweet_login_headless,
+        headless=effective_playwright_headless(settings.scweet_login_headless),
     )
     return str(session.get("auth_token") or "")
 

@@ -17,6 +17,11 @@ from app.integrations.scweet_client import (
     resolve_scweet_auth_token,
     scweet_settings_summary,
 )
+from app.integrations.playwright_env import (
+    effective_playwright_headless,
+    playwright_login_allowed,
+    playwright_login_blocked_message,
+)
 from app.integrations.x_session_login import get_or_create_x_session
 
 VALID_OPERATIONS = frozenset(
@@ -113,6 +118,12 @@ def _ensure_session() -> dict[str, Any] | None:
         return {"ok": False, "error": "Scweet is disabled (SCWEET_ENABLED=false)."}
     if resolve_scweet_auth_token() or settings.scweet_auth_token.strip():
         return None
+    if not playwright_login_allowed():
+        return {
+            "ok": False,
+            "error": playwright_login_blocked_message(),
+            "scweet": get_scweet_health(),
+        }
     refresh = refresh_scweet_session(force=False)
     if not refresh.get("ok"):
         return {
@@ -126,6 +137,14 @@ def _ensure_session() -> dict[str, Any] | None:
 def refresh_scweet_session(*, force: bool = False, headless: bool | None = None) -> dict[str, Any]:
     """Log into X and cache session cookies for Scweet."""
     settings = get_settings()
+
+    if not playwright_login_allowed():
+        return {
+            "ok": False,
+            "error": playwright_login_blocked_message(),
+            "scweet": get_scweet_health(),
+        }
+
     login = _scweet_login_id(settings)
     password = settings.scweet_password.strip()
 
@@ -140,7 +159,9 @@ def refresh_scweet_session(*, force: bool = False, headless: bool | None = None)
     if verification == login:
         verification = None
 
-    use_headless = settings.scweet_login_headless if headless is None else headless
+    use_headless = effective_playwright_headless(
+        settings.scweet_login_headless if headless is None else headless
+    )
 
     try:
         session = get_or_create_x_session(

@@ -106,14 +106,26 @@ export function PostGeneratorTab() {
               </FormField>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <FormField label="Region">
-                  <Input value={form.region} onChange={(e) => update("region", e.target.value)} />
+                  <Input
+                    value={form.region}
+                    onChange={(e) => update("region", e.target.value)}
+                    autoComplete="address-level1"
+                  />
                 </FormField>
                 <FormField label="Country">
-                  <Input value={form.country} onChange={(e) => update("country", e.target.value)} />
+                  <Input
+                    value={form.country}
+                    onChange={(e) => update("country", e.target.value)}
+                    autoComplete="country-name"
+                  />
                 </FormField>
               </div>
               <FormField label="City / district">
-                <Input value={form.city_district} onChange={(e) => update("city_district", e.target.value)} />
+                <Input
+                  value={form.city_district}
+                  onChange={(e) => update("city_district", e.target.value)}
+                  autoComplete="address-level2"
+                />
               </FormField>
               <FormField label="Incident category">
                 <Input

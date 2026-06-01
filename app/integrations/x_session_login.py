@@ -10,6 +10,8 @@ from typing import Any
 
 from loguru import logger
 
+from app.integrations.playwright_env import effective_playwright_headless
+
 DEFAULT_CACHE_PATH = "data/scweet_session.json"
 SESSION_TTL_HOURS = 12
 
@@ -115,6 +117,7 @@ def login_x_with_credentials(
 
     login = login.strip()
     verification = (verification_handle or login).strip()
+    headless = effective_playwright_headless(headless)
     if not headless:
         timeout_ms = max(timeout_ms, 300_000)
     logger.info(f"Logging into X as {login} (Playwright headless={headless})")

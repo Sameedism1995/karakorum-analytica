@@ -16,10 +16,10 @@ mkdir -p "${LOG_DIR}"
 
 CRON_LINE="0 */10 * * * cd ${ROOT} && ${PYTHON} ${SCRIPT} --always-refresh --deploy >> ${LOG_FILE} 2>&1"
 
-if crontab -l 2>/dev/null | grep -F "${SCRIPT}" >/dev/null; then
+if (crontab -l 2>/dev/null || true) | grep -F "${SCRIPT}" >/dev/null; then
   echo "Cron job already installed for sync_scweet_token_to_render.py"
 else
-  (crontab -l 2>/dev/null; echo "${CRON_LINE}") | crontab -
+  ((crontab -l 2>/dev/null || true); echo "${CRON_LINE}") | crontab -
   echo "Installed cron job (every 10 hours):"
   echo "${CRON_LINE}"
 fi

@@ -106,7 +106,11 @@ export function KeywordBuilderTab() {
               </FormField>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <FormField label="Region">
-                  <Input value={form.region} onChange={(e) => update("region", e.target.value)} />
+                  <Input
+                    value={form.region}
+                    onChange={(e) => update("region", e.target.value)}
+                    autoComplete="address-level1"
+                  />
                 </FormField>
                 <FormField label="Time sensitivity">
                   <Select
