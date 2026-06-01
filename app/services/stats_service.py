@@ -7,8 +7,9 @@ from datetime import datetime, timezone
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.models.draft_post import DraftPost
+from app.models.draft_post import DraftPost  # noqa: F401
 from app.models.incident import Incident
+from app.models.posted_item import PostedItem  # noqa: F401
 from app.models.raw_news import RawNews
 
 
