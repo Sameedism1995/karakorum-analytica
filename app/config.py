@@ -77,10 +77,7 @@ class Settings(BaseSettings):
 
     @property
     def using_supabase(self) -> bool:
-        url = self.effective_database_url.lower()
-        return "supabase.co" in url or (
-            url.startswith("postgresql") and self.supabase_configured
-        )
+        return "supabase.co" in self.effective_database_url.lower()
 
     @property
     def database_backend(self) -> str:

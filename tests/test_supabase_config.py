@@ -22,6 +22,14 @@ def test_effective_database_url_builds_from_password():
     assert "p%40ss%3Aword" in url
 
 
+def test_using_supabase_when_db_url_points_at_supabase():
+    settings = Settings(
+        supabase_db_url="postgresql://postgres:secret@db.abc123.supabase.co:5432/postgres"
+    )
+    assert settings.using_supabase is True
+    assert settings.database_backend == "supabase"
+
+
 def test_sqlite_fallback_when_supabase_not_set():
     settings = Settings(database_url="sqlite:///./local.db")
     assert settings.effective_database_url == "sqlite:///./local.db"
