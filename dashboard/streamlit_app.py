@@ -15,6 +15,10 @@ ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from dashboard.env_bootstrap import bootstrap_env
+
+bootstrap_env(ROOT)
+
 from dashboard import api_client, embedded_backend
 from dashboard.branding import BRAND_NAME, LOGO_PATH, render_sidebar_logo
 from dashboard.collection_ui import handle_run_collection_click, render_collection_progress

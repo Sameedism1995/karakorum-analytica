@@ -5,6 +5,10 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from loguru import logger
 
+from app.env_bootstrap import bootstrap_env
+
+bootstrap_env()
+
 from app.api.routes import router
 from app.bootstrap import bootstrap_database
 from app.config import get_settings

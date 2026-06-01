@@ -53,7 +53,17 @@ services:
         sync: false
       - key: SCWEET_ENABLED
         sync: false
+      - key: SCWEET_USERNAME
+        sync: false
+      - key: SCWEET_PASSWORD
+        sync: false
+      - key: SCWEET_EMAIL
+        sync: false
       - key: SCWEET_AUTH_TOKEN
+        sync: false
+      - key: SCWEET_AUTO_LOGIN
+        sync: false
+      - key: SCWEET_LOGIN_HEADLESS
         sync: false
       - key: SCWEET_COOKIES_FILE
         sync: false
@@ -83,3 +93,20 @@ services:
           name: karakorum-analytica-api
           type: web
           envVarKey: RENDER_EXTERNAL_URL
+      # Scweet / X — set in Render dashboard Environment (embedded mode reads these)
+      - key: SCWEET_ENABLED
+        value: "true"
+      - key: SCWEET_USERNAME
+        sync: false
+      - key: SCWEET_PASSWORD
+        sync: false
+      - key: SCWEET_EMAIL
+        sync: false
+      - key: SCWEET_AUTO_LOGIN
+        value: "true"
+      - key: SCWEET_LOGIN_HEADLESS
+        value: "true"
+      - key: SCWEET_SESSION_CACHE_PATH
+        value: data/scweet_session.json
+      - key: SCWEET_DB_PATH
+        value: data/scweet_state.db

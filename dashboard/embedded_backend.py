@@ -45,6 +45,15 @@ def _apply_secrets_to_env() -> None:
             "ACLED_EMAIL",
             "ACLED_API_KEY",
             "RELIEFWEB_APPNAME",
+            "SCWEET_ENABLED",
+            "SCWEET_USERNAME",
+            "SCWEET_PASSWORD",
+            "SCWEET_EMAIL",
+            "SCWEET_AUTH_TOKEN",
+            "SCWEET_AUTO_LOGIN",
+            "SCWEET_LOGIN_HEADLESS",
+            "SCWEET_SESSION_CACHE_PATH",
+            "SCWEET_DB_PATH",
         )
         for key in secret_keys:
             if key in st.secrets:
