@@ -399,21 +399,40 @@ def _render_watch_list_tab(backend: ModuleType, base_url: str) -> None:
         return
 
     st.markdown("**Watched profiles**")
+    st.caption(
+        "Posting rhythm is estimated from stored tweets (last 30 days, **PKT**). "
+        "Fetch a profile at least twice to unlock schedule hints for automation."
+    )
     for entry in items:
         handle = entry.get("handle") or ""
         mins_label = entry.get("last_fetched_mins_ago") or "Never"
         saved = entry.get("last_saved_count", 0)
         fetched = entry.get("last_tweet_count", 0)
         err = entry.get("last_error")
+        posting = entry.get("posting") or {}
 
         c_handle, c_time, c_fetch, c_remove = st.columns([2, 2, 1, 1])
         with c_handle:
             st.markdown(f"**@{handle}**")
+            if posting.get("ready"):
+                st.caption(posting.get("summary") or "")
+                peaks = posting.get("peak_post_times_local") or []
+                if peaks:
+                    st.caption(f"Peak hours: {', '.join(peaks)}")
+            elif posting.get("sample_size", 0) == 1:
+                st.caption("1 tweet stored — fetch again for posting schedule")
+            else:
+                st.caption(posting.get("summary") or "No posting stats yet")
             if err:
                 st.caption(f"Last error: {err[:80]}")
         with c_time:
             st.markdown(f"**{mins_label}**")
             st.caption(f"Last run: {fetched} fetched · {saved} saved")
+            if posting.get("ready"):
+                st.caption(
+                    f"{posting.get('avg_posts_per_day', 0):.1f}/day · "
+                    f"avg post {posting.get('avg_post_time_local', '—')}"
+                )
         with c_fetch:
             if st.button("Fetch", key=f"x_watch_fetch_{handle}", use_container_width=True):
                 with st.spinner(f"Fetching @{handle}…"):

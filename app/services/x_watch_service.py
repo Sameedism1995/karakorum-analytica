@@ -14,6 +14,7 @@ from app.config import get_settings
 from app.models.x_watch_account import XWatchAccount
 from app.services.scweet_persist_service import persist_scweet_items
 from app.services.scweet_service import execute_scweet_operation
+from app.services.x_posting_analytics import compute_posting_stats, compute_posting_stats_map
 
 _HANDLE_RE = re.compile(r"^[A-Za-z0-9_]{1,15}$")
 
@@ -63,8 +64,12 @@ def _mins_ago(dt: datetime | None) -> str | None:
     return f"{days} day ago"
 
 
-def watch_account_to_dict(record: XWatchAccount) -> dict[str, Any]:
-    return {
+def watch_account_to_dict(
+    record: XWatchAccount,
+    *,
+    posting: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    payload = {
         "id": record.id,
         "handle": record.handle,
         "enabled": record.enabled,
@@ -75,13 +80,21 @@ def watch_account_to_dict(record: XWatchAccount) -> dict[str, Any]:
         "last_saved_count": record.last_saved_count,
         "last_error": record.last_error,
     }
+    if posting is not None:
+        payload["posting"] = posting
+    return payload
 
 
 def list_watch_accounts(db: Session, *, enabled_only: bool = False) -> list[dict[str, Any]]:
     query = db.query(XWatchAccount).order_by(XWatchAccount.handle.asc())
     if enabled_only:
         query = query.filter(XWatchAccount.enabled.is_(True))
-    return [watch_account_to_dict(row) for row in query.all()]
+    rows = query.all()
+    stats_map = compute_posting_stats_map(db, [row.handle for row in rows])
+    return [
+        watch_account_to_dict(row, posting=stats_map.get(row.handle))
+        for row in rows
+    ]
 
 
 def add_watch_account(db: Session, raw_handle: str) -> dict[str, Any]:
@@ -96,7 +109,12 @@ def add_watch_account(db: Session, raw_handle: str) -> dict[str, Any]:
             existing.last_error = None
             db.commit()
             db.refresh(existing)
-        return {"ok": True, "created": False, "account": watch_account_to_dict(existing)}
+        posting = compute_posting_stats(db, existing.handle)
+        return {
+            "ok": True,
+            "created": False,
+            "account": watch_account_to_dict(existing, posting=posting),
+        }
 
     record = XWatchAccount(
         handle=handle,
@@ -107,7 +125,8 @@ def add_watch_account(db: Session, raw_handle: str) -> dict[str, Any]:
     db.commit()
     db.refresh(record)
     logger.info(f"Added X watch account @{handle}")
-    return {"ok": True, "created": True, "account": watch_account_to_dict(record)}
+    posting = compute_posting_stats(db, handle)
+    return {"ok": True, "created": True, "account": watch_account_to_dict(record, posting=posting)}
 
 
 def remove_watch_account(db: Session, raw_handle: str) -> dict[str, Any]:
@@ -150,7 +169,8 @@ def fetch_watch_account(
     if not result.get("ok"):
         record.last_error = str(result.get("error") or "Fetch failed")
         db.commit()
-        return {**result, "handle": handle, "account": watch_account_to_dict(record)}
+        posting = compute_posting_stats(db, handle)
+        return {**result, "handle": handle, "account": watch_account_to_dict(record, posting=posting)}
 
     items = result.get("items") or []
     persist_stats = persist_scweet_items(db, items, apply_pipeline_filters=False)
@@ -162,11 +182,12 @@ def fetch_watch_account(
     db.commit()
     db.refresh(record)
 
+    posting = compute_posting_stats(db, handle)
     return {
         **result,
         "handle": handle,
         "persist": persist_stats,
-        "account": watch_account_to_dict(record),
+        "account": watch_account_to_dict(record, posting=posting),
     }
 
 
