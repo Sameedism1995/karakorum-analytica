@@ -77,6 +77,21 @@ class Settings(BaseSettings):
     scweet_login_headless: bool = True
     scweet_session_cache_path: str = "data/scweet_session.json"
 
+    render_api_key: str = ""
+    render_scweet_service_names: str = (
+        "karakorum-analytica-api,karakorum-analytica-dashboard"
+    )
+
+    @property
+    def render_scweet_service_names_list(self) -> list[str]:
+        if not self.render_scweet_service_names.strip():
+            return []
+        return [
+            name.strip()
+            for name in self.render_scweet_service_names.replace("\n", ",").split(",")
+            if name.strip()
+        ]
+
     @property
     def scweet_search_queries_list(self) -> list[str]:
         if not self.scweet_search_queries.strip():

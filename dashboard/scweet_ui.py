@@ -198,8 +198,8 @@ def _render_session_tab(
         if scweet.get("has_auth_token") and not scweet.get("auto_login"):
             st.info(
                 "Using **SCWEET_AUTH_TOKEN** (no Playwright on server). "
-                "Refresh locally with `python scripts/scweet_login.py --refresh`, "
-                "then `python scripts/export_scweet_token_for_render.py` for Render."
+                "Auto-sync: `python scripts/sync_scweet_token_to_render.py` or "
+                "`bash scripts/install_scweet_token_cron.sh`."
             )
 
     st.divider()

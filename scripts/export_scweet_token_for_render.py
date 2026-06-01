@@ -3,34 +3,52 @@
 
 from __future__ import annotations
 
-import json
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_CACHE = ROOT / "data" / "scweet_session.json"
+sys.path.insert(0, str(ROOT))
+
+try:
+    from dotenv import load_dotenv
+
+    load_dotenv(ROOT / ".env")
+except ImportError:
+    pass
+
+from app.integrations.scweet_token_sync import read_cached_session, run_sync
 
 
 def main() -> int:
-    cache_path = Path(sys.argv[1]) if len(sys.argv) > 1 else DEFAULT_CACHE
-    if not cache_path.is_file():
-        print(f"Session cache not found: {cache_path}")
-        print("Run: python scripts/scweet_login.py --refresh")
+    if "--sync" in sys.argv:
+        from app.config import get_settings
+
+        get_settings.cache_clear()
+        result = run_sync(force_refresh="--refresh" in sys.argv, deploy="--deploy" in sys.argv)
+        if not result.get("ok"):
+            return 1
+        print("Synced. See output above.")
+        return 0
+
+    session = read_cached_session()
+    if not session:
+        print("Session cache not found. Run: python scripts/sync_scweet_token_to_render.py --refresh")
         return 1
 
-    session = json.loads(cache_path.read_text(encoding="utf-8"))
     token = str(session.get("auth_token") or "").strip()
     if not token:
-        print("No auth_token in session cache. Run login again.")
+        print("No auth_token in session cache.")
         return 1
 
     expires = session.get("expires_at", "unknown")
     print("Add these environment variables on Render (both API + dashboard services):\n")
-    print(f"SCWEET_ENABLED=true")
+    print("SCWEET_ENABLED=true")
     print(f"SCWEET_AUTH_TOKEN={token}")
     print("SCWEET_AUTO_LOGIN=false")
-    print(f"\nSession cached at: {expires} (refresh locally when Scweet auth fails)")
-    print("\nRender path: Dashboard → karakorum-analytica-dashboard → Environment → Add variable")
+    print(f"\nSession expires: {expires}")
+    print("\nAutomate with:")
+    print("  python scripts/sync_scweet_token_to_render.py --refresh")
+    print("  bash scripts/install_scweet_token_cron.sh")
     return 0
 
 
