@@ -31,6 +31,8 @@ from scripts.sync_scweet_token_to_render import (  # noqa: E402
 
 SYNC_KEYS = (
     "SUPABASE_DB_URL",
+    "SUPABASE_DB_POOLER_URL",
+    "SUPABASE_POOLER_REGION",
     "SUPABASE_URL",
     "SUPABASE_SERVICE_ROLE_KEY",
     "SUPABASE_BUCKET_NAME",

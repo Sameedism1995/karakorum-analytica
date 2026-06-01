@@ -177,6 +177,13 @@ def main() -> None:
             f'Start the API with <code>uvicorn app.main:app --reload</code> or wait for Render to wake up.</div>',
             unsafe_allow_html=True,
         )
+    elif health.get("degraded"):
+        st.markdown(
+            '<div class="warn-box"><strong>Degraded mode:</strong> Postgres is unreachable from Render '
+            "(IPv6). Showing data via Supabase REST. Ingestion writes need "
+            "<code>SUPABASE_DB_POOLER_URL</code> on the API service.</div>",
+            unsafe_allow_html=True,
+        )
 
     tab_overview, tab_raw, tab_incidents, tab_drafts, tab_ingestion, tab_scweet, tab_system = st.tabs(
         [

@@ -13,6 +13,9 @@ def _build_engine(database_url: str):
     if database_url.startswith("sqlite"):
         connect_args = {"check_same_thread": False}
     elif database_url.startswith("postgresql"):
+        if ":6543" in database_url or "pooler.supabase.com" in database_url:
+            # Supavisor transaction pooler does not support prepared statements.
+            connect_args["prepare_threshold"] = None
         engine_kwargs.update(
             {
                 "pool_size": 5,

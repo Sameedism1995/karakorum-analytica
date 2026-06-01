@@ -30,6 +30,8 @@ class Settings(BaseSettings):
     supabase_service_role_key: str = ""
     supabase_bucket_name: str = "karakorum-osint-media"
     supabase_db_url: str = ""
+    supabase_db_pooler_url: str = ""
+    supabase_pooler_region: str = ""
     supabase_db_password: str = ""
 
     scraper_api_key: str = ""
@@ -195,6 +197,15 @@ class Settings(BaseSettings):
     @property
     def effective_database_url(self) -> str:
         """Resolve DB URL: explicit Supabase/Postgres URL, built URL, or SQLite fallback."""
+        pooler = self.supabase_db_pooler_url.strip()
+        if pooler:
+            return self._normalize_postgres_url(pooler)
+
+        if os.environ.get("RENDER"):
+            built_pooler = self._build_pooler_url_from_direct()
+            if built_pooler:
+                return self._normalize_postgres_url(built_pooler)
+
         if self.supabase_db_url.strip():
             return self._normalize_postgres_url(self.supabase_db_url.strip())
 
@@ -224,6 +235,41 @@ class Settings(BaseSettings):
                 )
 
         return self.database_url
+
+    def _build_pooler_url_from_direct(self) -> str | None:
+        """Build Supavisor session pooler URL (IPv4) from direct Supabase URI + region."""
+        region = self.supabase_pooler_region.strip()
+        if not region:
+            return None
+
+        direct = self.supabase_db_url.strip()
+        if not direct and self.supabase_url and self.supabase_db_password:
+            password = quote_plus(self.supabase_db_password)
+            ref = self.supabase_project_ref
+            if ref:
+                direct = (
+                    f"postgresql://postgres:{password}"
+                    f"@db.{ref}.supabase.co:5432/postgres"
+                )
+
+        if not direct or "supabase.co" not in direct:
+            return None
+
+        import re
+        from urllib.parse import unquote_plus
+
+        match = re.match(
+            r"postgresql(?:\+psycopg)?://postgres:([^@]+)@db\.([^.]+)\.supabase\.co:5432/postgres",
+            direct,
+        )
+        if not match:
+            return None
+
+        password_enc, ref = match.group(1), match.group(2)
+        password = unquote_plus(password_enc)
+        user = f"postgres.{ref}"
+        host = f"aws-0-{region}.pooler.supabase.com"
+        return f"postgresql://{user}:{quote_plus(password)}@{host}:5432/postgres"
 
     @staticmethod
     def _normalize_postgres_url(url: str) -> str:

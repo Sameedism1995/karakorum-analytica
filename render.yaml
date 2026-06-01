@@ -42,7 +42,10 @@ services:
         value: karakorum-osint-media
       - key: SUPABASE_DB_URL
         sync: false
-      - key: SCRAPER_API_KEY
+      - key: SUPABASE_DB_POOLER_URL
+        sync: false
+      - key: SUPABASE_POOLER_REGION
+        sync: false
         sync: false
       - key: RELIEFWEB_APPNAME
         sync: false

@@ -64,8 +64,24 @@ def render_ingestion_connection_banners(
             )
     else:
         db_meta = data.get("database") or {}
+        supabase_meta = data.get("supabase") or {}
         if db_meta.get("using_supabase"):
-            st.success(f"**Database:** Supabase via API ({db_meta.get('backend', 'postgres')})")
+            if db_meta.get("connected"):
+                st.success(
+                    f"**Database:** Supabase via API ({db_meta.get('backend', 'postgres')}) · full read/write"
+                )
+            elif supabase_meta.get("api_ok"):
+                st.warning(
+                    "**Database:** Supabase REST reads active (Postgres unreachable on Render — IPv6). "
+                    "Watch list add/remove works; fetching tweets needs **SUPABASE_DB_POOLER_URL** on the API. "
+                    "Sync with `python scripts/sync_render_env.py --deploy`."
+                )
+            else:
+                ready = False
+                st.error(
+                    f"**Database:** Supabase configured but unreachable. "
+                    f"{db_meta.get('error') or supabase_meta.get('api_error') or ''}"
+                )
         elif health_ok:
             st.warning(
                 "**Database:** API is up but not using Supabase. Set **SUPABASE_DB_URL** on "

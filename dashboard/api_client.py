@@ -34,30 +34,82 @@ def _base_url(base_url: str | None = None) -> str:
     return resolve_base_url(base_url)
 
 
+def _parse_root_health(data: dict[str, Any]) -> dict[str, Any]:
+    """Treat API as reachable when Postgres or Supabase REST can serve reads."""
+    db = data.get("database") or {}
+    supabase = data.get("supabase") or {}
+    db_connected = bool(db.get("connected"))
+    rest_ok = bool(supabase.get("api_ok"))
+    using_supabase = bool(db.get("using_supabase"))
+
+    if data.get("status") == "running":
+        if db_connected:
+            ok = True
+        elif using_supabase and rest_ok:
+            ok = True
+        elif not using_supabase:
+            ok = True
+        else:
+            ok = False
+    else:
+        ok = False
+
+    degraded = ok and using_supabase and not db_connected and rest_ok
+    error = None
+    if not ok:
+        error = db.get("error") or supabase.get("api_error") or "Backend unavailable"
+
+    return {"ok": ok, "degraded": degraded, "error": error}
+
+
 def check_backend(
     base_url: str | None = None,
     *,
     timeout: int | None = None,
 ) -> dict[str, Any]:
-    """Return health payload from GET /health (fallback GET /) or an error dict."""
+    """Return health payload from GET / (preferred) or GET /health."""
     url = _base_url(base_url)
     request_timeout = timeout if timeout is not None else REQUEST_TIMEOUT
     try:
-        for path in ("/health", "/"):
-            response = requests.get(f"{url}{path}", timeout=request_timeout)
-            if response.status_code == 404:
-                continue
-            response.raise_for_status()
-            data = response.json()
-            return {"ok": True, "data": data, "error": None}
-        return {
-            "ok": False,
-            "data": None,
-            "error": "not_found",
-            "detail": (
-                f"No API service at {url}. Deploy on Render or use embedded mode."
-            ),
-        }
+        root_response = requests.get(f"{url}/", timeout=request_timeout)
+        if root_response.status_code == 200:
+            data = root_response.json()
+            parsed = _parse_root_health(data)
+            return {
+                "ok": parsed["ok"],
+                "degraded": parsed["degraded"],
+                "data": data,
+                "error": parsed["error"],
+            }
+
+        health_response = requests.get(f"{url}/health", timeout=request_timeout)
+        if health_response.status_code == 404:
+            return {
+                "ok": False,
+                "degraded": False,
+                "data": None,
+                "error": "not_found",
+                "detail": (
+                    f"No API service at {url}. Deploy on Render or use embedded mode."
+                ),
+            }
+        health_response.raise_for_status()
+        data = health_response.json()
+        ok = data.get("status") == "ok"
+        return {"ok": ok, "degraded": False, "data": data, "error": None if ok else "unhealthy"}
+    except requests.RequestException as exc:
+        return {"ok": False, "degraded": False, "data": None, "error": str(exc)}
+
+
+def get_database_health(base_url: str | None = None) -> dict[str, Any]:
+    """Fetch GET /health/database (Postgres + Supabase REST row counts)."""
+    try:
+        response = requests.get(
+            f"{_base_url(base_url)}/health/database",
+            timeout=REQUEST_TIMEOUT,
+        )
+        response.raise_for_status()
+        return {"ok": True, "data": response.json(), "error": None}
     except requests.RequestException as exc:
         return {"ok": False, "data": None, "error": str(exc)}
 

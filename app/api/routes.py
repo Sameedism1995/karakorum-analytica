@@ -33,6 +33,16 @@ from app.services.draft_service import (
     list_drafts,
     reject_draft,
 )
+from app.integrations.supabase_read_service import (
+    add_watch_account_rest,
+    fetch_dashboard_stats_rest,
+    fetch_drafts_rest,
+    fetch_incidents_rest,
+    fetch_raw_news_rest,
+    fetch_watch_accounts_rest,
+    remove_watch_account_rest,
+)
+from app.services.db_read_fallback import sql_or_rest
 from app.services.incident_service import incident_to_dict, list_incidents
 from app.services.stats_service import get_dashboard_stats
 
@@ -135,20 +145,28 @@ def scweet_accounts(runs_limit: int = 10) -> dict:
 @router.get("/scweet/watch")
 def scweet_watch_list(db: Session = Depends(get_db)) -> dict:
     """List watched X profiles with last extraction time."""
-    items = list_watch_accounts(db)
-    return {"ok": True, "count": len(items), "items": items}
+    return sql_or_rest(
+        lambda: {"ok": True, "count": len(items := list_watch_accounts(db)), "items": items},
+        fetch_watch_accounts_rest,
+    )
 
 
 @router.post("/scweet/watch")
 def scweet_watch_add(body: WatchAccountRequest, db: Session = Depends(get_db)) -> dict:
     """Add an X handle to the watch list."""
-    return add_watch_account(db, body.handle)
+    return sql_or_rest(
+        lambda: add_watch_account(db, body.handle),
+        lambda: add_watch_account_rest(body.handle),
+    )
 
 
 @router.delete("/scweet/watch/{handle}")
 def scweet_watch_remove(handle: str, db: Session = Depends(get_db)) -> dict:
     """Remove an X handle from the watch list."""
-    return remove_watch_account(db, handle)
+    return sql_or_rest(
+        lambda: remove_watch_account(db, handle),
+        lambda: remove_watch_account_rest(handle),
+    )
 
 
 @router.post("/scweet/watch/{handle}/fetch")
@@ -158,14 +176,34 @@ def scweet_watch_fetch(
     db: Session = Depends(get_db),
 ) -> dict:
     """Fetch one watched profile now and save tweets to the database."""
+    from app.database import check_database_connection
+
+    if not check_database_connection().get("ok"):
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Postgres is unreachable from this server. Set SUPABASE_DB_POOLER_URL "
+                "on the API service (Supabase → Connect → Session pooler, port 5432), "
+                "then redeploy."
+            ),
+        )
     return fetch_watch_account(db, handle, limit=limit)
 
 
 @router.post("/scweet/watch/fetch-all")
 def scweet_watch_fetch_all(db: Session = Depends(get_db)) -> dict:
     """Fetch all enabled watched profiles and save tweets."""
+    from app.database import check_database_connection
     from app.services.x_watch_service import collect_all_watch_accounts
 
+    if not check_database_connection().get("ok"):
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Postgres is unreachable. Configure SUPABASE_DB_POOLER_URL on the API "
+                "service to enable saving fetched tweets."
+            ),
+        )
     stats = collect_all_watch_accounts(db)
     return {"ok": True, **stats}
 
@@ -202,30 +240,46 @@ def collection_status() -> dict:
 @router.get("/stats")
 def dashboard_stats(db: Session = Depends(get_db)) -> dict:
     """Cumulative dashboard totals from the database."""
-    return get_dashboard_stats(db)
+    return sql_or_rest(
+        lambda: get_dashboard_stats(db),
+        fetch_dashboard_stats_rest,
+    )
 
 
 @router.get("/raw-news")
 def get_raw_news(limit: int = 500, db: Session = Depends(get_db)) -> dict:
-    records = get_recent_raw_news(db, limit=limit)
-    total = db.query(func.count(RawNews.id)).scalar() or 0
-    return {
-        "count": len(records),
-        "total": total,
-        "items": [raw_news_to_dict(r) for r in records],
-    }
+    def _sql() -> dict:
+        records = get_recent_raw_news(db, limit=limit)
+        total = db.query(func.count(RawNews.id)).scalar() or 0
+        return {
+            "count": len(records),
+            "total": total,
+            "items": [raw_news_to_dict(r) for r in records],
+        }
+
+    return sql_or_rest(_sql, lambda: fetch_raw_news_rest(limit=limit))
 
 
 @router.get("/incidents")
 def get_incidents(limit: int = 100, db: Session = Depends(get_db)) -> dict:
-    records = list_incidents(db, limit=limit)
-    return {"count": len(records), "items": [incident_to_dict(r) for r in records]}
+    return sql_or_rest(
+        lambda: {
+            "count": len(records := list_incidents(db, limit=limit)),
+            "items": [incident_to_dict(r) for r in records],
+        },
+        lambda: fetch_incidents_rest(limit=limit),
+    )
 
 
 @router.get("/drafts")
 def get_drafts(limit: int = 100, db: Session = Depends(get_db)) -> dict:
-    records = list_drafts(db, limit=limit)
-    return {"count": len(records), "items": [draft_to_dict(r) for r in records]}
+    return sql_or_rest(
+        lambda: {
+            "count": len(records := list_drafts(db, limit=limit)),
+            "items": [draft_to_dict(r) for r in records],
+        },
+        lambda: fetch_drafts_rest(limit=limit),
+    )
 
 
 @router.post("/drafts/{draft_id}/approve")

@@ -26,15 +26,21 @@ def render_app_sidebar(
     st.markdown("### App status")
 
     connected = bool(health.get("ok"))
+    degraded = bool(health.get("degraded"))
     data = health.get("data") or {}
 
     st.markdown('<div class="sidebar-status-box">', unsafe_allow_html=True)
     if connected:
-        label = "Embedded backend" if embedded else "API connected"
+        label = "Embedded backend" if embedded else ("API connected (REST reads)" if degraded else "API connected")
         st.markdown(
             f'<span class="status-pill status-connected">{label}</span>',
             unsafe_allow_html=True,
         )
+        if degraded:
+            st.caption(
+                "Postgres is offline on Render (IPv6). Dashboard reads via Supabase REST. "
+                "Set SUPABASE_DB_POOLER_URL on the API service for ingestion writes."
+            )
     else:
         st.markdown(
             '<span class="status-pill status-disconnected">Not connected</span>',
@@ -57,7 +63,10 @@ def render_app_sidebar(
             st.caption(f"DB: {db_info.get('error', 'offline')[:120]}")
     elif db_meta:
         if db_meta.get("using_supabase"):
-            st.caption(f"Database: Supabase ({db_meta.get('backend', 'postgres')})")
+            db_line = f"Database: Supabase ({db_meta.get('backend', 'postgres')})"
+            if degraded and not db_meta.get("connected"):
+                db_line += " · REST fallback"
+            st.caption(db_line)
         else:
             st.caption(f"Database: {db_meta.get('backend', 'local')} (set SUPABASE_DB_URL)")
 
