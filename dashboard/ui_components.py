@@ -571,7 +571,8 @@ def render_incident_card(incident: dict[str, Any]) -> None:
             <div class="item-meta"><strong>Event type:</strong> {incident.get('event_type') or '—'}</div>
             <div class="item-meta"><strong>Matched sources:</strong> {incident.get('matched_sources') or '—'}</div>
             <div class="item-meta"><strong>Keywords:</strong> {incident.get('keywords') or '—'}</div>
-            <div class="item-meta"><strong>Created:</strong> {format_datetime(incident.get('created_at'))}</div>
+            <div class="item-meta"><strong>Event date:</strong> {format_datetime(incident.get('event_at'))}</div>
+            <div class="item-meta"><strong>Grouped:</strong> {format_datetime(incident.get('created_at'))}</div>
             <div class="item-meta"><strong>Confidence:</strong> {score:.2f}%</div>
             <div class="confidence-bar-wrap">
                 <div class="confidence-bar-fill" style="width: {bar_width}%;"></div>

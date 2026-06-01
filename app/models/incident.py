@@ -1,4 +1,6 @@
-from sqlalchemy import Float, String, Text
+from datetime import datetime
+
+from sqlalchemy import DateTime, Float, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin
@@ -16,6 +18,7 @@ class Incident(Base, TimestampMixin):
     confidence_score: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
     matched_sources: Mapped[str | None] = mapped_column(String(256), nullable=True)
     keywords: Mapped[str | None] = mapped_column(Text, nullable=True)
+    event_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     status: Mapped[str] = mapped_column(String(32), default="save_only", nullable=False)
 
     draft_posts = relationship("DraftPost", back_populates="incident")

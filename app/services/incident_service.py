@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from loguru import logger
 from sqlalchemy.orm import Session
 
@@ -6,6 +8,26 @@ from app.models.raw_news import RawNews
 from app.processors.confidence_scorer import incident_status_from_score, score_confidence
 from app.processors.incident_matcher import group_items_into_incidents
 from app.processors.keyword_extractor import keywords_to_string
+
+
+def _group_event_at(items: list[dict]) -> datetime | None:
+    """Latest published_at among grouped raw items (incident event time)."""
+    dates: list[datetime] = []
+    for item in items:
+        published = item.get("published_at")
+        if isinstance(published, datetime):
+            dt = published
+        elif published is not None:
+            try:
+                dt = datetime.fromisoformat(str(published).replace("Z", "+00:00"))
+            except ValueError:
+                continue
+        else:
+            continue
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        dates.append(dt)
+    return max(dates) if dates else None
 
 
 def _raw_to_item(record: RawNews) -> dict:
@@ -38,6 +60,7 @@ def process_incidents(db: Session) -> dict[str, int]:
         confidence = score_confidence(sources)
         status = incident_status_from_score(confidence)
         kw_str = keywords_to_string(group["keywords"])
+        event_at = _group_event_at(group["items"])
 
         existing = (
             db.query(Incident)
@@ -52,6 +75,7 @@ def process_incidents(db: Session) -> dict[str, int]:
             existing.keywords = kw_str
             existing.status = status
             existing.event_type = group.get("event_type")
+            existing.event_at = event_at
             updated += 1
         else:
             incident = Incident(
@@ -63,6 +87,7 @@ def process_incidents(db: Session) -> dict[str, int]:
                 confidence_score=confidence,
                 matched_sources=", ".join(sources),
                 keywords=kw_str,
+                event_at=event_at,
                 status=status,
             )
             db.add(incident)
@@ -89,5 +114,6 @@ def incident_to_dict(incident: Incident) -> dict:
         "matched_sources": incident.matched_sources,
         "keywords": incident.keywords,
         "status": incident.status,
+        "event_at": incident.event_at.isoformat() if incident.event_at else None,
         "created_at": incident.created_at.isoformat(),
     }

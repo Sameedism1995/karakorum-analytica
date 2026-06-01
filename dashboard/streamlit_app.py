@@ -20,6 +20,7 @@ bootstrap_env(ROOT)
 
 from dashboard import api_client, embedded_backend
 from dashboard.branding import BRAND_NAME, LOGO_PATH, render_sidebar_logo
+from dashboard.incidents_ui import render_incidents_tab
 from dashboard.ingestion_ui import render_ingestion_tab
 from dashboard.sidebar_ui import render_app_sidebar
 from dashboard.metrics_cache import load_metrics
@@ -33,7 +34,6 @@ from dashboard.ui_components import (
     raw_news_to_dataframe,
     render_draft_card,
     render_header,
-    render_incident_card,
     render_overview_charts,
     render_overview_kpis,
     render_raw_news_cards,
@@ -204,14 +204,7 @@ def main() -> None:
             st.warning("Backend unavailable — raw news cannot be loaded.")
 
     with tab_incidents:
-        st.markdown('<div class="section-title">Grouped incidents</div>', unsafe_allow_html=True)
-        if not health["ok"]:
-            st.warning("Backend unavailable — incidents cannot be loaded.")
-        elif not incident_items:
-            st.info("No incidents yet. Run collection to group matching reports.")
-        else:
-            for incident in incident_items:
-                render_incident_card(incident)
+        render_incidents_tab(incident_items, health_ok=health["ok"])
 
     with tab_drafts:
         st.markdown('<div class="section-title">Draft posts for review</div>', unsafe_allow_html=True)
