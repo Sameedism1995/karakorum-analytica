@@ -1,3 +1,7 @@
 # Scweet — vendored X/Twitter scraper (https://github.com/Altimis/Scweet)
-# Install after submodule init: pip install -r requirements-scweet.txt
+# Requires: git submodule update --init --recursive
 -e ./third_party/Scweet
+curl_cffi
+XClientTransaction>=1.0.2
+sqlmodel>=0.0.22
+playwright
