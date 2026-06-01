@@ -345,18 +345,114 @@ def _render_search_tab(backend: ModuleType, base_url: str, scweet: dict[str, Any
             st.error(result.get("error") or "Search failed.")
 
 
+def _render_watch_list_tab(backend: ModuleType, base_url: str) -> None:
+    """Managed list of X profiles — add/remove in one click, show last extraction time."""
+    st.caption(
+        "Accounts here are polled on **Run Collection Now** and saved to your database (Supabase when configured)."
+    )
+
+    watch_payload = backend.get_x_watch_list(base_url)
+    if not watch_payload.get("ok") and watch_payload.get("error"):
+        st.error(watch_payload.get("error") or "Could not load watch list.")
+        return
+
+    items: list[dict[str, Any]] = watch_payload.get("items") or []
+
+    add_col, btn_col = st.columns([4, 1])
+    with add_col:
+        new_handle = st.text_input(
+            "Add X handle or profile URL",
+            key="x_watch_new_handle",
+            placeholder="@TKCkhyber or https://x.com/TKCkhyber",
+            label_visibility="collapsed",
+        )
+    with btn_col:
+        st.markdown("<div style='height:1.6rem'></div>", unsafe_allow_html=True)
+        if st.button("Add", type="primary", use_container_width=True, key="x_watch_add_btn"):
+            if not new_handle.strip():
+                st.warning("Enter a handle or profile URL.")
+            else:
+                added = backend.add_x_watch_account(base_url, handle=new_handle.strip())
+                if added.get("ok"):
+                    st.success(f"Added @{added.get('account', {}).get('handle', new_handle.lstrip('@'))}")
+                    st.rerun()
+                else:
+                    st.error(added.get("error") or "Could not add account.")
+
+    action_col1, action_col2 = st.columns(2)
+    with action_col1:
+        if st.button("Fetch all watched profiles now", use_container_width=True, key="x_watch_fetch_all"):
+            with st.spinner("Fetching all watched profiles…"):
+                bulk = backend.fetch_all_x_watch_accounts(base_url)
+            if bulk.get("ok"):
+                st.success(
+                    f"Saved {bulk.get('saved', 0)} new tweet(s) from {bulk.get('handles', 0)} account(s)."
+                )
+                st.rerun()
+            else:
+                st.error(bulk.get("error") or "Bulk fetch failed.")
+    with action_col2:
+        st.metric("Watched accounts", len(items))
+
+    if not items:
+        st.info("No accounts on the watch list yet. Add a handle above — one click to add, one click to remove.")
+        return
+
+    st.markdown("**Watched profiles**")
+    for entry in items:
+        handle = entry.get("handle") or ""
+        mins_label = entry.get("last_fetched_mins_ago") or "Never"
+        saved = entry.get("last_saved_count", 0)
+        fetched = entry.get("last_tweet_count", 0)
+        err = entry.get("last_error")
+
+        c_handle, c_time, c_fetch, c_remove = st.columns([2, 2, 1, 1])
+        with c_handle:
+            st.markdown(f"**@{handle}**")
+            if err:
+                st.caption(f"Last error: {err[:80]}")
+        with c_time:
+            st.markdown(f"**{mins_label}**")
+            st.caption(f"Last run: {fetched} fetched · {saved} saved")
+        with c_fetch:
+            if st.button("Fetch", key=f"x_watch_fetch_{handle}", use_container_width=True):
+                with st.spinner(f"Fetching @{handle}…"):
+                    one = backend.fetch_x_watch_account(base_url, handle=handle)
+                if one.get("ok"):
+                    persist = one.get("persist") or {}
+                    st.success(f"@{handle}: saved {persist.get('saved', 0)} new tweet(s).")
+                    st.rerun()
+                else:
+                    st.error(one.get("error") or "Fetch failed.")
+        with c_remove:
+            if st.button("Remove", key=f"x_watch_remove_{handle}", use_container_width=True):
+                removed = backend.remove_x_watch_account(base_url, handle=handle)
+                if removed.get("ok"):
+                    st.rerun()
+                else:
+                    st.error(removed.get("error") or "Remove failed.")
+
+
 def _render_profile_tab(backend: ModuleType, base_url: str) -> None:
     with st.form("scweet_profile_form"):
         users = st.text_input("Usernames or profile URLs", placeholder="kkanalytica, x.com/someuser")
         pagination = _pagination_options("profile", default_limit=50)
         output = _output_options("profile")
+        save_db = st.checkbox(
+            "Save tweets to database (Supabase)",
+            value=True,
+            help="Stores results in raw_news for the Collected tab and pipeline.",
+        )
         submitted = st.form_submit_button("Fetch profile tweets", type="primary")
 
     if submitted:
-        params = {"users": users, **pagination, **output}
+        params = {"users": users, **pagination, **output, "persist": save_db}
         result = _run_operation(backend, base_url, "profile_tweets", params)
         if result.get("ok"):
             _render_tweet_results(result)
+            if result.get("persist"):
+                p = result["persist"]
+                st.info(f"Database: saved {p.get('saved', 0)} · duplicates {p.get('duplicates', 0)}")
         else:
             st.error(result.get("error") or "Profile tweets failed.")
 
@@ -419,8 +515,8 @@ def _render_collected_tab(raw_df: pd.DataFrame) -> None:
 
     if scweet_df.empty:
         st.info(
-            "No X/Scweet items stored yet. Use Search above or **Run Collection Now** "
-            "from the sidebar to ingest tweets into the pipeline."
+            "No X/Scweet items in the database yet. Add accounts on **Watch list**, "
+            "use **Profile tweets** with save enabled, or **Run Collection Now**."
         )
         return
 
@@ -468,10 +564,28 @@ def render_scweet_tab(
 
     st.divider()
 
-    tab_session, tab_search, tab_profile, tab_follows, tab_users, tab_collected = st.tabs(
-        ["Session", "Search", "Profile tweets", "Followers / Following", "User info", "Collected"]
+    (
+        tab_watch,
+        tab_session,
+        tab_search,
+        tab_profile,
+        tab_follows,
+        tab_users,
+        tab_collected,
+    ) = st.tabs(
+        [
+            "Watch list",
+            "Session",
+            "Search",
+            "Profile tweets",
+            "Followers / Following",
+            "User info",
+            "Collected",
+        ]
     )
 
+    with tab_watch:
+        _render_watch_list_tab(backend, base_url)
     with tab_session:
         _render_session_tab(backend, base_url, scweet)
     with tab_search:

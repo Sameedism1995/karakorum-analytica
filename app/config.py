@@ -70,6 +70,7 @@ class Settings(BaseSettings):
         description="Comma-separated X search queries for Scweet (default: Pakistan security query)",
     )
     scweet_limit: int = 50
+    x_watch_profile_limit: int = 50
     scweet_since_days: int = 7
     scweet_proxy: str = ""
     scweet_lang: str = "en"

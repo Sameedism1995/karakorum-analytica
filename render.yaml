@@ -115,3 +115,6 @@ services:
       # Paste token from: python scripts/export_scweet_token_for_render.py
       - key: SCWEET_AUTH_TOKEN
         sync: false
+      # Same Postgres as API — watch list + collected tweets persist here
+      - key: SUPABASE_DB_URL
+        sync: false

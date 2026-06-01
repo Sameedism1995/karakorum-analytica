@@ -7,12 +7,19 @@ from app.database import get_db
 from app.integrations.supabase_client import check_supabase_api, check_supabase_storage
 from pydantic import BaseModel, Field
 
+from app.services.scweet_persist_service import persist_scweet_items
 from app.services.scweet_service import (
     execute_scweet_operation,
     get_scweet_accounts,
     get_scweet_health,
     refresh_scweet_session,
     run_scweet_test_search,
+)
+from app.services.x_watch_service import (
+    add_watch_account,
+    fetch_watch_account,
+    list_watch_accounts,
+    remove_watch_account,
 )
 from app.integrations.x_client import check_x_connection
 from app.models.raw_news import RawNews
@@ -38,6 +45,10 @@ API_SERVICE_NAME = "karakorum-analytica-api"
 class ScweetRunRequest(BaseModel):
     operation: str
     params: dict = Field(default_factory=dict)
+
+
+class WatchAccountRequest(BaseModel):
+    handle: str = Field(..., min_length=1, max_length=256)
 
 
 @router.get("/health")
@@ -121,10 +132,56 @@ def scweet_accounts(runs_limit: int = 10) -> dict:
     return get_scweet_accounts(runs_limit=runs_limit)
 
 
+@router.get("/scweet/watch")
+def scweet_watch_list(db: Session = Depends(get_db)) -> dict:
+    """List watched X profiles with last extraction time."""
+    items = list_watch_accounts(db)
+    return {"ok": True, "count": len(items), "items": items}
+
+
+@router.post("/scweet/watch")
+def scweet_watch_add(body: WatchAccountRequest, db: Session = Depends(get_db)) -> dict:
+    """Add an X handle to the watch list."""
+    return add_watch_account(db, body.handle)
+
+
+@router.delete("/scweet/watch/{handle}")
+def scweet_watch_remove(handle: str, db: Session = Depends(get_db)) -> dict:
+    """Remove an X handle from the watch list."""
+    return remove_watch_account(db, handle)
+
+
+@router.post("/scweet/watch/{handle}/fetch")
+def scweet_watch_fetch(
+    handle: str,
+    limit: int = 50,
+    db: Session = Depends(get_db),
+) -> dict:
+    """Fetch one watched profile now and save tweets to the database."""
+    return fetch_watch_account(db, handle, limit=limit)
+
+
+@router.post("/scweet/watch/fetch-all")
+def scweet_watch_fetch_all(db: Session = Depends(get_db)) -> dict:
+    """Fetch all enabled watched profiles and save tweets."""
+    from app.services.x_watch_service import collect_all_watch_accounts
+
+    stats = collect_all_watch_accounts(db)
+    return {"ok": True, **stats}
+
+
 @router.post("/scweet/run")
-def scweet_run(body: ScweetRunRequest) -> dict:
+def scweet_run(body: ScweetRunRequest, db: Session = Depends(get_db)) -> dict:
     """Execute a Scweet operation (search, profile tweets, followers, following, user info)."""
-    return execute_scweet_operation(body.operation, body.params)
+    result = execute_scweet_operation(body.operation, body.params)
+    if result.get("ok") and body.params.get("persist") and result.get("items"):
+        apply_filters = bool(body.params.get("apply_pipeline_filters"))
+        result["persist"] = persist_scweet_items(
+            db,
+            result["items"],
+            apply_pipeline_filters=apply_filters,
+        )
+    return result
 
 
 @router.post("/collect/run")

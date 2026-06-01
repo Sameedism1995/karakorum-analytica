@@ -76,6 +76,7 @@ def init_db() -> None:
     from app.models.draft_post import DraftPost  # noqa: F401
     from app.models.posted_item import PostedItem  # noqa: F401
     from app.models.llm_saved_post import LlmSavedPost  # noqa: F401
+    from app.models.x_watch_account import XWatchAccount  # noqa: F401
     from app.models.base import Base
 
     Base.metadata.create_all(bind=engine)

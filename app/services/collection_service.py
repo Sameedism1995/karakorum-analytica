@@ -96,7 +96,18 @@ def collect_all(
     all_items.extend(scweet_items)
     report(f"Scweet returned {len(scweet_items)} tweets", 61, "scweet")
 
-    report(f"Filtering and saving {len(all_items)} items…", 62, "save")
+    report("Fetching watched X profiles…", 62, "x_watch")
+    from app.services.x_watch_service import collect_all_watch_accounts
+
+    watch_stats = collect_all_watch_accounts(db, on_progress=on_progress)
+    report(
+        f"Watch list: saved {watch_stats.get('saved', 0)} tweet(s) from "
+        f"{watch_stats.get('handles', 0)} account(s)",
+        64,
+        "x_watch",
+    )
+
+    report(f"Filtering and saving {len(all_items)} items…", 65, "save")
     saved = 0
     skipped = 0
     filtered_out = 0
@@ -125,7 +136,13 @@ def collect_all(
     logger.info(
         f"Collection complete: saved={saved}, duplicates={skipped}, filtered_out={filtered_out}"
     )
-    return {"saved": saved, "duplicates": skipped, "filtered_out": filtered_out, "fetched": len(all_items)}
+    return {
+        "saved": saved,
+        "duplicates": skipped,
+        "filtered_out": filtered_out,
+        "fetched": len(all_items),
+        "x_watch": watch_stats,
+    }
 
 
 def get_recent_raw_news(db: Session, limit: int = 100) -> list[RawNews]:

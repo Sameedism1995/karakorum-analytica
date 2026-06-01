@@ -54,6 +54,8 @@ def _apply_secrets_to_env() -> None:
             "SCWEET_LOGIN_HEADLESS",
             "SCWEET_SESSION_CACHE_PATH",
             "SCWEET_DB_PATH",
+            "SUPABASE_DB_URL",
+            "DATABASE_URL",
         )
         for key in secret_keys:
             if key in st.secrets:
@@ -92,6 +94,12 @@ def _init_with_url(database_url: str) -> dict[str, Any]:
 @st.cache_resource
 def _bootstrap_database() -> dict[str, Any]:
     _apply_secrets_to_env()
+
+    supabase_url = os.environ.get("SUPABASE_DB_URL", "").strip()
+    if supabase_url:
+        status = _init_with_url(supabase_url)
+        if status.get("ok"):
+            return status
 
     if _on_streamlit_cloud():
         return _init_with_url(CLOUD_SQLITE)
@@ -299,13 +307,101 @@ def get_scweet_accounts(base_url: str = "", *, runs_limit: int = 10) -> dict[str
         return {"ok": False, "error": str(exc), "accounts": [], "runs": []}
 
 
+def get_x_watch_list(base_url: str = "") -> dict[str, Any]:
+    from app.services.x_watch_service import list_watch_accounts
+
+    try:
+        db = _session()
+    except Exception as exc:
+        return {"ok": False, "error": str(exc), "items": []}
+    try:
+        items = list_watch_accounts(db)
+        return {"ok": True, "count": len(items), "items": items}
+    finally:
+        db.close()
+
+
+def add_x_watch_account(base_url: str = "", *, handle: str) -> dict[str, Any]:
+    from app.services.x_watch_service import add_watch_account
+
+    try:
+        db = _session()
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)}
+    try:
+        return add_watch_account(db, handle)
+    finally:
+        db.close()
+
+
+def remove_x_watch_account(base_url: str = "", *, handle: str) -> dict[str, Any]:
+    from app.services.x_watch_service import remove_watch_account
+
+    try:
+        db = _session()
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)}
+    try:
+        return remove_watch_account(db, handle)
+    finally:
+        db.close()
+
+
+def fetch_x_watch_account(
+    base_url: str = "",
+    *,
+    handle: str,
+    limit: int = 50,
+) -> dict[str, Any]:
+    from app.services.x_watch_service import fetch_watch_account
+
+    try:
+        db = _session()
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)}
+    try:
+        return fetch_watch_account(db, handle, limit=limit)
+    finally:
+        db.close()
+
+
+def fetch_all_x_watch_accounts(base_url: str = "") -> dict[str, Any]:
+    from app.services.x_watch_service import collect_all_watch_accounts
+
+    try:
+        db = _session()
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)}
+    try:
+        stats = collect_all_watch_accounts(db)
+        return {"ok": True, **stats}
+    finally:
+        db.close()
+
+
 def run_scweet_operation(
     base_url: str = "",
     *,
     operation: str,
     params: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
+    from app.services.scweet_persist_service import persist_scweet_items
+
+    payload = params or {}
     try:
-        return execute_scweet_operation_service(operation, params or {})
+        db = _session()
     except Exception as exc:
         return {"ok": False, "error": str(exc)}
+    try:
+        result = execute_scweet_operation_service(operation, payload)
+        if result.get("ok") and payload.get("persist") and result.get("items"):
+            result["persist"] = persist_scweet_items(
+                db,
+                result["items"],
+                apply_pipeline_filters=bool(payload.get("apply_pipeline_filters")),
+            )
+        return result
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)}
+    finally:
+        db.close()

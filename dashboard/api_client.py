@@ -305,6 +305,101 @@ def get_scweet_accounts(base_url: str | None = None, *, runs_limit: int = 10) ->
         return {"ok": False, "error": str(exc), "accounts": [], "runs": []}
 
 
+def get_x_watch_list(base_url: str | None = None) -> dict[str, Any]:
+    """GET /scweet/watch — watched X profiles."""
+    try:
+        response = requests.get(
+            f"{_base_url(base_url)}/scweet/watch",
+            timeout=REQUEST_TIMEOUT,
+        )
+        response.raise_for_status()
+        return response.json()
+    except requests.RequestException as exc:
+        return {"ok": False, "error": str(exc), "items": []}
+
+
+def add_x_watch_account(base_url: str | None = None, *, handle: str) -> dict[str, Any]:
+    """POST /scweet/watch."""
+    try:
+        response = requests.post(
+            f"{_base_url(base_url)}/scweet/watch",
+            json={"handle": handle},
+            timeout=REQUEST_TIMEOUT,
+        )
+        response.raise_for_status()
+        return response.json()
+    except requests.RequestException as exc:
+        message = str(exc)
+        if isinstance(exc, requests.HTTPError) and exc.response is not None:
+            try:
+                detail = exc.response.json()
+                message = detail.get("error") or detail.get("detail") or message
+            except ValueError:
+                message = exc.response.text or message
+        return {"ok": False, "error": message}
+
+
+def remove_x_watch_account(base_url: str | None = None, *, handle: str) -> dict[str, Any]:
+    """DELETE /scweet/watch/{handle}."""
+    handle = handle.lstrip("@")
+    try:
+        response = requests.delete(
+            f"{_base_url(base_url)}/scweet/watch/{handle}",
+            timeout=REQUEST_TIMEOUT,
+        )
+        response.raise_for_status()
+        return response.json()
+    except requests.RequestException as exc:
+        message = str(exc)
+        if isinstance(exc, requests.HTTPError) and exc.response is not None:
+            try:
+                detail = exc.response.json()
+                message = detail.get("error") or detail.get("detail") or message
+            except ValueError:
+                message = exc.response.text or message
+        return {"ok": False, "error": message}
+
+
+def fetch_x_watch_account(
+    base_url: str | None = None,
+    *,
+    handle: str,
+    limit: int = 50,
+) -> dict[str, Any]:
+    """POST /scweet/watch/{handle}/fetch."""
+    handle = handle.lstrip("@")
+    try:
+        response = requests.post(
+            f"{_base_url(base_url)}/scweet/watch/{handle}/fetch",
+            params={"limit": limit},
+            timeout=180,
+        )
+        response.raise_for_status()
+        return response.json()
+    except requests.RequestException as exc:
+        message = str(exc)
+        if isinstance(exc, requests.HTTPError) and exc.response is not None:
+            try:
+                detail = exc.response.json()
+                message = detail.get("error") or detail.get("detail") or message
+            except ValueError:
+                message = exc.response.text or message
+        return {"ok": False, "error": message}
+
+
+def fetch_all_x_watch_accounts(base_url: str | None = None) -> dict[str, Any]:
+    """POST /scweet/watch/fetch-all."""
+    try:
+        response = requests.post(
+            f"{_base_url(base_url)}/scweet/watch/fetch-all",
+            timeout=300,
+        )
+        response.raise_for_status()
+        return response.json()
+    except requests.RequestException as exc:
+        return {"ok": False, "error": str(exc)}
+
+
 def run_scweet_operation(
     base_url: str | None = None,
     *,

@@ -33,6 +33,7 @@ STEP_LABELS = {
     "acled": "ACLED",
     "news_web": "News channels",
     "scweet": "X (Scweet)",
+    "x_watch": "X watch list",
     "save": "Saving articles",
     "incidents": "Grouping incidents",
     "drafts": "Generating drafts",
