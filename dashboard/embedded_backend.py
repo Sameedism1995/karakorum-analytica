@@ -18,6 +18,7 @@ from app.services.draft_service import (
     reject_draft as reject_draft_record,
 )
 from app.services.incident_service import incident_to_dict, list_incidents
+from app.services.stats_service import get_dashboard_stats
 
 CLOUD_SQLITE = "sqlite:////tmp/karakorum-analytica.db"
 LOCAL_SQLITE = "sqlite:///./local.db"
@@ -150,6 +151,17 @@ def get_collection_status(base_url: str = "") -> dict[str, Any]:
         return {"ok": True, "data": get_collection_job_status(), "error": None}
     except Exception as exc:
         return {"ok": False, "data": None, "error": str(exc)}
+
+
+def get_stats(base_url: str = "") -> dict[str, Any]:
+    try:
+        db = _session()
+    except Exception as exc:
+        return {"ok": False, "data": None, "error": str(exc)}
+    try:
+        return {"ok": True, "data": get_dashboard_stats(db), "error": None}
+    finally:
+        db.close()
 
 
 def get_raw_news(base_url: str = "", limit: int = 500) -> list[dict[str, Any]]:

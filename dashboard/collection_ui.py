@@ -8,6 +8,8 @@ from typing import Any
 
 import streamlit as st
 
+from dashboard.metrics_cache import store_metrics
+
 COLLECTION_MONITOR_KEY = "collection_monitoring"
 COLLECTION_STATUS_KEY = "collection_last_status"
 
@@ -83,6 +85,12 @@ def render_collection_progress(
         collection = result.get("collection") or {}
         incidents = result.get("incidents") or {}
         drafts = result.get("drafts") or {}
+        if hasattr(backend, "get_stats"):
+            stats_resp = backend.get_stats(base_url)
+            if stats_resp.get("ok") and stats_resp.get("data"):
+                store_metrics(stats_resp["data"])
+            elif data.get("totals"):
+                store_metrics(data["totals"])
         st.success(
             f"Collection complete — saved {collection.get('saved', 0)}, "
             f"incidents created {incidents.get('incidents_created', 0)}, "

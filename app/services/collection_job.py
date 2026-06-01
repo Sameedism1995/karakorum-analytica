@@ -12,6 +12,7 @@ from app.database import SessionLocal
 from app.services.collection_service import collect_all
 from app.services.draft_service import generate_drafts_for_incidents
 from app.services.incident_service import process_incidents
+from app.services.stats_service import get_dashboard_stats
 
 _lock = threading.Lock()
 _state: dict[str, Any] = {
@@ -74,10 +75,13 @@ def _run_pipeline() -> None:
         _report(f"Drafts — created {drafts.get('drafts_created', 0)} new posts", 95, "drafts")
 
         result = {"collection": collection, "incidents": incidents, "drafts": drafts}
+        totals = get_dashboard_stats(db)
         _report(
             f"Done — saved {collection.get('saved', 0)} articles, "
             f"{incidents.get('incidents_created', 0)} new incidents, "
-            f"{drafts.get('drafts_created', 0)} new drafts",
+            f"{drafts.get('drafts_created', 0)} new drafts "
+            f"(totals: {totals['total_raw']} raw, {totals['total_incidents']} incidents, "
+            f"{totals['total_drafts']} drafts)",
             100,
             "done",
         )
@@ -90,6 +94,7 @@ def _run_pipeline() -> None:
                 "started_at": started_at,
                 "finished_at": _utc_now(),
                 "result": result,
+                "totals": totals,
                 "error": None,
             }
         logger.info(f"Background collection finished: {result}")

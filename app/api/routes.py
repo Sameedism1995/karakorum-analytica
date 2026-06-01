@@ -1,9 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.database import get_db
 from app.integrations.supabase_client import check_supabase_api, check_supabase_storage
+from app.models.raw_news import RawNews
 from app.publishers.x_publisher import post_draft_to_x
 from app.services.collection_job import get_collection_job_status, start_collection_job
 from app.services.collection_service import get_recent_raw_news, raw_news_to_dict
@@ -15,6 +17,7 @@ from app.services.draft_service import (
     reject_draft,
 )
 from app.services.incident_service import incident_to_dict, list_incidents
+from app.services.stats_service import get_dashboard_stats
 
 router = APIRouter()
 settings = get_settings()
@@ -83,10 +86,21 @@ def collection_status() -> dict:
     return get_collection_job_status()
 
 
+@router.get("/stats")
+def dashboard_stats(db: Session = Depends(get_db)) -> dict:
+    """Cumulative dashboard totals from the database."""
+    return get_dashboard_stats(db)
+
+
 @router.get("/raw-news")
-def get_raw_news(limit: int = 100, db: Session = Depends(get_db)) -> dict:
+def get_raw_news(limit: int = 500, db: Session = Depends(get_db)) -> dict:
     records = get_recent_raw_news(db, limit=limit)
-    return {"count": len(records), "items": [raw_news_to_dict(r) for r in records]}
+    total = db.query(func.count(RawNews.id)).scalar() or 0
+    return {
+        "count": len(records),
+        "total": total,
+        "items": [raw_news_to_dict(r) for r in records],
+    }
 
 
 @router.get("/incidents")

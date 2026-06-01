@@ -94,6 +94,19 @@ def get_collection_status(base_url: str | None = None) -> dict[str, Any]:
         return {"ok": False, "data": None, "error": str(exc)}
 
 
+def get_stats(base_url: str | None = None) -> dict[str, Any]:
+    """Fetch GET /stats (cumulative DB totals)."""
+    try:
+        response = requests.get(
+            f"{_base_url(base_url)}/stats",
+            timeout=REQUEST_TIMEOUT,
+        )
+        response.raise_for_status()
+        return {"ok": True, "data": response.json(), "error": None}
+    except requests.RequestException as exc:
+        return {"ok": False, "data": None, "error": str(exc)}
+
+
 def get_raw_news(
     base_url: str | None = None,
     limit: int = 500,

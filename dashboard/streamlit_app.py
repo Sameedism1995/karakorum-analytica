@@ -18,9 +18,9 @@ if str(ROOT) not in sys.path:
 from dashboard import api_client, embedded_backend
 from dashboard.branding import BRAND_NAME, LOGO_PATH, render_sidebar_logo
 from dashboard.collection_ui import handle_run_collection_click, render_collection_progress
+from dashboard.metrics_cache import load_metrics
 from dashboard.styles import CUSTOM_CSS
 from dashboard.ui_components import (
-    compute_overview_metrics,
     drafts_to_dataframe,
     filter_raw_news_df,
     incidents_to_dataframe,
@@ -205,7 +205,7 @@ def main() -> None:
     incidents_df = incidents_to_dataframe(incident_items)
     drafts_df = drafts_to_dataframe(draft_items)
 
-    metrics = compute_overview_metrics(raw_df, incidents_df, drafts_df)
+    metrics = load_metrics(backend, base_url, health_ok=health["ok"])
     last_refresh = _now_str()
     x_posting_enabled = bool((health.get("data") or {}).get("x_posting_enabled", False))
 
