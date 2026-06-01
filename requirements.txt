@@ -16,3 +16,6 @@ plotly
 streamlit-autorefresh
 psycopg[binary]
 supabase
+# Embedded collection (dashboard imports collection_service → RSS scraper)
+feedparser
+tenacity
