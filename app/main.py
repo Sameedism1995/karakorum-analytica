@@ -1,14 +1,18 @@
 import sys
 import threading
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from loguru import logger
 
 from app.env_bootstrap import bootstrap_env
 
 bootstrap_env()
 
+from app.api.dashboard_routes import router as dashboard_router
 from app.api.routes import router
 from app.bootstrap import bootstrap_database
 from app.config import get_settings
@@ -30,6 +34,29 @@ app.add_middleware(
 )
 
 app.include_router(router)
+app.include_router(dashboard_router)
+
+
+def _mount_llm_dashboard() -> None:
+    """Serve built React LLM dashboard at /llm when dist/ exists."""
+    dist = Path(settings.llm_dashboard_path)
+    if not dist.is_dir() or not (dist / "index.html").is_file():
+        logger.info(f"LLM dashboard static files not found at {dist} — run npm run build in llm-dashboard/")
+        return
+
+    assets_dir = dist / "assets"
+    if assets_dir.is_dir():
+        app.mount("/llm/assets", StaticFiles(directory=str(assets_dir)), name="llm-dashboard-assets")
+
+    @app.get("/llm")
+    @app.get("/llm/{full_path:path}")
+    def serve_llm_dashboard(full_path: str = "") -> FileResponse:
+        return FileResponse(dist / "index.html")
+
+    logger.info(f"LLM dashboard mounted at /llm (from {dist})")
+
+
+_mount_llm_dashboard()
 
 
 def _run_startup_pipeline() -> None:

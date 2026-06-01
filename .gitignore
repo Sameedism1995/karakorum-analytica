@@ -16,3 +16,5 @@ data/scweet_state.db
 data/scweet_session.json
 third_party/Scweet/scweet_state.db
 data/
+llm-dashboard/node_modules/
+llm-dashboard/dist/

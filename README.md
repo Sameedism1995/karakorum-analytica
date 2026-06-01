@@ -116,6 +116,70 @@ streamlit run dashboard/streamlit_app.py
 
 Use **Run Collection Now** in the sidebar to trigger the pipeline, then browse Overview, Raw News, Incidents, and Drafts tabs.
 
+## LLM Newsroom Dashboard
+
+Internal editorial dashboard for generating, auditing, rewriting, and preparing posts with keyword/SEO support and verification safeguards.
+
+**Stack:** FastAPI (`/dashboard/*` endpoints) + React + Vite + [shadcn/ui](https://github.com/shadcn-ui/ui) (`llm-dashboard/`). Karakorum dark theme (deep black, charcoal, muted red). Template-based inference by default; set `OPENAI_API_KEY` to enable optional OpenAI calls.
+
+### Quick start (development)
+
+**Terminal 1 — API:**
+
+```bash
+uvicorn app.main:app --reload
+```
+
+**Terminal 2 — LLM dashboard (Vite dev, proxies API):**
+
+```bash
+cd llm-dashboard && npm install && npm run dev
+```
+
+Open http://localhost:5173/llm/
+
+Or use the combined script:
+
+```bash
+bash scripts/start_llm_dashboard_dev.sh
+```
+
+### Production build (served by FastAPI at `/llm`)
+
+```bash
+bash scripts/build_llm_dashboard.sh
+uvicorn app.main:app --host 0.0.0.0 --port 8000
+```
+
+Open http://127.0.0.1:8000/llm/
+
+### Dashboard tabs
+
+| Tab | Purpose |
+|-----|---------|
+| Post Generator | Incident text → X post, website post, SEO headline, hashtags |
+| Keyword Builder | Topic keywords → headlines/posts **or templates** if no verified text |
+| Audit & Verification | Risk score, unsupported claims, safer rewrite, publish status |
+| SEO Assistant | Title, slug, meta, tags, social caption |
+| Saved Outputs | SQLite storage with draft/reviewed/ready/rejected status |
+
+### API endpoints
+
+- `POST /dashboard/generate-post`
+- `POST /dashboard/keyword-post`
+- `POST /dashboard/audit-post`
+- `POST /dashboard/seo`
+- `GET /dashboard/posts`
+- `POST /dashboard/posts/save`
+- `PUT /dashboard/posts/{id}/status`
+- `DELETE /dashboard/posts/{id}`
+
+### Editorial safeguards
+
+The UI and backend enforce cautious language: keyword-only inputs produce **templates and checklists**, not fake news. Grade D/E sources and unverified casualty figures trigger warnings.
+
+Optional env vars (see `.env.example`): `LLM_PROVIDER`, `LLM_MODEL`, `OPENAI_API_KEY`.
+
 ## Share publicly (Render)
 
 **One-click Blueprint deploy:**
@@ -140,11 +204,12 @@ This is a **Python monorepo at the repo root** — not separate `backend/` and `
 ```
 app/              FastAPI backend (entry: app.main:app)
 dashboard/        Streamlit admin UI (entry: dashboard/streamlit_app.py)
+llm-dashboard/    React + Vite LLM newsroom UI (served at /llm when built)
 render.yaml       Render Blueprint — two Python web services
 requirements.txt  Shared Python dependencies
 ```
 
-There is no `npm run build`. The dashboard is Streamlit (Python), not React.
+The main ops dashboard is Streamlit. The **LLM newsroom** is a separate React app (`llm-dashboard/`) built with `npm run build` and served by FastAPI at `/llm`.
 
 ### Deploy on Render
 

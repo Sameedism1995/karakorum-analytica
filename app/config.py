@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     run_collection_on_startup: bool = False
 
     allowed_origins: str = Field(
-        default="http://localhost:8501,http://127.0.0.1:8501",
+        default="http://localhost:8501,http://127.0.0.1:8501,http://localhost:5173,http://127.0.0.1:5173",
         description="Comma-separated CORS origins",
     )
 
@@ -81,6 +81,12 @@ class Settings(BaseSettings):
     render_scweet_service_names: str = (
         "karakorum-analytica-api,karakorum-analytica-dashboard"
     )
+
+    # LLM newsroom (optional — placeholder templates used when unset)
+    llm_provider: str = "placeholder"
+    llm_model: str = "gpt-4o-mini"
+    openai_api_key: str = ""
+    llm_dashboard_path: str = "llm-dashboard/dist"
 
     @property
     def render_scweet_service_names_list(self) -> list[str]:
