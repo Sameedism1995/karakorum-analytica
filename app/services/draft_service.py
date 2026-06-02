@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.models.draft_post import DraftPost
 from app.models.incident import Incident
 from app.processors.post_generator import generate_draft_post
+from app.services.draft_llm_service import generate_post_text_for_incident, incident_to_raw_text
 from app.services.incident_service import incident_to_dict
 
 
@@ -24,18 +25,7 @@ def generate_drafts_for_incidents(db: Session) -> dict[str, int]:
         if existing:
             continue
 
-        keywords = (incident.keywords or "").split(", ")
-        keywords = [k for k in keywords if k]
-        source_count = len([s for s in (incident.matched_sources or "").split(", ") if s])
-
-        post_text = generate_draft_post(
-            main_title=incident.main_title,
-            province=incident.province,
-            city=incident.city,
-            keywords=keywords,
-            confidence_score=incident.confidence_score,
-            source_count=source_count,
-        )
+        post_text, _meta = generate_post_text_for_incident(db, incident)
 
         draft = DraftPost(
             incident_id=incident.id,
@@ -79,6 +69,38 @@ def reject_draft(db: Session, draft_id: int) -> DraftPost | None:
     db.commit()
     db.refresh(draft)
     return draft
+
+
+def update_draft_text(db: Session, draft_id: int, post_text: str) -> DraftPost | None:
+    draft = get_draft(db, draft_id)
+    if not draft:
+        return None
+    if draft.status not in ("pending", "approved"):
+        return None
+    draft.post_text = post_text.strip()[:280]
+    db.commit()
+    db.refresh(draft)
+    return draft
+
+
+def regenerate_draft_with_llm(
+    db: Session,
+    draft_id: int,
+    *,
+    tone: str = "neutral",
+) -> dict | None:
+    draft = get_draft(db, draft_id)
+    if not draft:
+        return None
+    incident = db.query(Incident).filter(Incident.id == draft.incident_id).first()
+    if not incident:
+        return None
+    post_text, meta = generate_post_text_for_incident(db, incident, tone=tone)
+    draft.post_text = post_text
+    draft.status = "pending"
+    db.commit()
+    db.refresh(draft)
+    return {"draft": draft_to_dict(draft), "llm": meta}
 
 
 def draft_to_dict(draft: DraftPost) -> dict:

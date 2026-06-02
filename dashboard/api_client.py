@@ -600,3 +600,167 @@ def delete_spiderfoot_scan(base_url: str | None = None, scan_id: str = "") -> di
 
 def list_spiderfoot_modules(base_url: str | None = None) -> dict[str, Any]:
     return _spiderfoot_json("GET", "/spiderfoot/modules", base_url, timeout=120)
+
+
+def get_llm_health(base_url: str | None = None) -> dict[str, Any]:
+    try:
+        response = requests.get(f"{_base_url(base_url)}/health/llm", timeout=REQUEST_TIMEOUT)
+        response.raise_for_status()
+        return {"ok": True, "data": response.json()}
+    except requests.RequestException as exc:
+        return {"ok": False, "error": str(exc)}
+
+
+def update_draft(base_url: str | None, draft_id: int, post_text: str) -> dict[str, Any]:
+    try:
+        response = requests.patch(
+            f"{_base_url(base_url)}/drafts/{draft_id}",
+            json={"post_text": post_text},
+            timeout=REQUEST_TIMEOUT,
+        )
+        response.raise_for_status()
+        return response.json()
+    except requests.RequestException as exc:
+        message = str(exc)
+        if isinstance(exc, requests.HTTPError) and exc.response is not None:
+            try:
+                message = exc.response.json().get("detail", message)
+            except ValueError:
+                message = exc.response.text or message
+        return {"ok": False, "error": message}
+
+
+def regenerate_draft(
+    base_url: str | None,
+    draft_id: int,
+    *,
+    tone: str = "neutral",
+) -> dict[str, Any]:
+    try:
+        response = requests.post(
+            f"{_base_url(base_url)}/drafts/{draft_id}/regenerate",
+            json={"tone": tone},
+            timeout=120,
+        )
+        response.raise_for_status()
+        return response.json()
+    except requests.RequestException as exc:
+        message = str(exc)
+        if isinstance(exc, requests.HTTPError) and exc.response is not None:
+            try:
+                message = exc.response.json().get("detail", message)
+            except ValueError:
+                message = exc.response.text or message
+        return {"ok": False, "error": message}
+
+
+def audit_draft(base_url: str | None, draft_id: int) -> dict[str, Any]:
+    try:
+        response = requests.post(
+            f"{_base_url(base_url)}/drafts/{draft_id}/audit",
+            timeout=REQUEST_TIMEOUT,
+        )
+        response.raise_for_status()
+        return response.json()
+    except requests.RequestException as exc:
+        return {"ok": False, "error": str(exc)}
+
+
+def llm_generate_post(base_url: str | None, payload: dict[str, Any]) -> dict[str, Any]:
+    try:
+        response = requests.post(
+            f"{_base_url(base_url)}/dashboard/generate-post",
+            json=payload,
+            timeout=120,
+        )
+        response.raise_for_status()
+        return {"ok": True, "data": response.json()}
+    except requests.RequestException as exc:
+        return {"ok": False, "error": str(exc)}
+
+
+def llm_audit_post(
+    base_url: str | None,
+    *,
+    draft_post: str,
+    raw_report: str = "",
+    source_information: str = "",
+) -> dict[str, Any]:
+    try:
+        response = requests.post(
+            f"{_base_url(base_url)}/dashboard/audit-post",
+            json={
+                "draft_post": draft_post,
+                "raw_report_text": raw_report,
+                "source_information": source_information,
+            },
+            timeout=REQUEST_TIMEOUT,
+        )
+        response.raise_for_status()
+        return {"ok": True, "data": response.json()}
+    except requests.RequestException as exc:
+        return {"ok": False, "error": str(exc)}
+
+
+def draft_newsroom_post_local(base_url: str | None, payload: dict[str, Any]) -> dict[str, Any]:
+    try:
+        response = requests.post(
+            f"{_base_url(base_url)}/llm/draft-newsroom-post",
+            json=payload,
+            timeout=180,
+        )
+        response.raise_for_status()
+        return {"ok": True, "data": response.json()}
+    except requests.RequestException as exc:
+        message = str(exc)
+        if isinstance(exc, requests.HTTPError) and exc.response is not None:
+            try:
+                detail = exc.response.json()
+                message = detail.get("detail") or message
+            except ValueError:
+                message = exc.response.text or message
+        return {"ok": False, "error": message}
+
+
+def audit_source_local(base_url: str | None, payload: dict[str, Any]) -> dict[str, Any]:
+    try:
+        response = requests.post(
+            f"{_base_url(base_url)}/llm/audit-source",
+            json=payload,
+            timeout=120,
+        )
+        response.raise_for_status()
+        return {"ok": True, "data": response.json()}
+    except requests.RequestException as exc:
+        message = str(exc)
+        if isinstance(exc, requests.HTTPError) and exc.response is not None:
+            try:
+                message = exc.response.json().get("detail", message)
+            except ValueError:
+                message = exc.response.text or message
+        return {"ok": False, "error": message}
+
+
+def save_training_example(base_url: str | None, payload: dict[str, Any]) -> dict[str, Any]:
+    try:
+        response = requests.post(
+            f"{_base_url(base_url)}/training/save-newsroom-example",
+            json=payload,
+            timeout=REQUEST_TIMEOUT,
+        )
+        response.raise_for_status()
+        return response.json()
+    except requests.RequestException as exc:
+        return {"ok": False, "error": str(exc)}
+
+
+def export_training_jsonl(base_url: str | None) -> dict[str, Any]:
+    try:
+        response = requests.get(
+            f"{_base_url(base_url)}/training/export-newsroom-jsonl",
+            timeout=120,
+        )
+        response.raise_for_status()
+        return {"ok": True, "content": response.text}
+    except requests.RequestException as exc:
+        return {"ok": False, "error": str(exc)}

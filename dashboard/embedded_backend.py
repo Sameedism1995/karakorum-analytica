@@ -529,3 +529,184 @@ def list_spiderfoot_modules(base_url: str = "") -> dict[str, Any]:
     from app.services.spiderfoot_service import list_modules
 
     return list_modules()
+
+
+def get_llm_health(base_url: str = "") -> dict[str, Any]:
+    from app.services.draft_llm_service import get_llm_health as _health
+
+    return {"ok": True, "data": {"llm": _health()}}
+
+
+def update_draft(base_url: str, draft_id: int, post_text: str) -> dict[str, Any]:
+    from app.services.draft_service import draft_to_dict, update_draft_text
+
+    try:
+        db = _session()
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)}
+    try:
+        draft = update_draft_text(db, draft_id, post_text)
+        if not draft:
+            return {"ok": False, "error": "Draft not found or not editable"}
+        return {"ok": True, "draft": draft_to_dict(draft)}
+    finally:
+        db.close()
+
+
+def regenerate_draft(
+    base_url: str,
+    draft_id: int,
+    *,
+    tone: str = "neutral",
+) -> dict[str, Any]:
+    from app.services.draft_service import regenerate_draft_with_llm
+
+    try:
+        db = _session()
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)}
+    try:
+        result = regenerate_draft_with_llm(db, draft_id, tone=tone)
+        if not result:
+            return {"ok": False, "error": "Draft or incident not found"}
+        return {"ok": True, **result}
+    finally:
+        db.close()
+
+
+def audit_draft(base_url: str, draft_id: int) -> dict[str, Any]:
+    from app.models.incident import Incident
+    from app.services.draft_llm_service import audit_draft_text, incident_to_raw_text
+    from app.services.draft_service import get_draft
+
+    try:
+        db = _session()
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)}
+    try:
+        draft = get_draft(db, draft_id)
+        if not draft:
+            return {"ok": False, "error": "Draft not found"}
+        incident = db.query(Incident).filter(Incident.id == draft.incident_id).first()
+        raw = incident_to_raw_text(incident) if incident else ""
+        source = ""
+        location = ""
+        incident_type = ""
+        if incident:
+            source = f"Confidence {incident.confidence_score:.0f}%; {incident.matched_sources or ''}"
+            location = ", ".join(p for p in [incident.city, incident.province] if p)
+            incident_type = incident.event_type or ""
+        return {
+            "ok": True,
+            "audit": audit_draft_text(
+                draft.post_text or "",
+                source_info=source,
+                raw_report=raw,
+                db=db,
+                location=location,
+                incident_type=incident_type,
+            ),
+        }
+    finally:
+        db.close()
+
+
+def llm_generate_post(base_url: str, payload: dict[str, Any]) -> dict[str, Any]:
+    from app.schemas.llm_dashboard import GeneratePostRequest
+    from app.services.llm_newsroom_service import generate_post
+
+    try:
+        body = GeneratePostRequest(**payload)
+        return {"ok": True, "data": generate_post(body).model_dump()}
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)}
+
+
+def llm_audit_post(
+    base_url: str,
+    *,
+    draft_post: str,
+    raw_report: str = "",
+    source_information: str = "",
+) -> dict[str, Any]:
+    from app.schemas.llm_dashboard import AuditPostRequest
+    from app.services.llm_newsroom_service import audit_post
+
+    try:
+        result = audit_post(
+            AuditPostRequest(
+                draft_post=draft_post,
+                raw_report_text=raw_report,
+                source_information=source_information,
+            )
+        )
+        return {"ok": True, "data": result.model_dump()}
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)}
+
+
+def draft_newsroom_post_local(base_url: str, payload: dict[str, Any]) -> dict[str, Any]:
+    from app.database import SessionLocal
+    from app.schemas.local_newsroom import NewsroomDraftRequest
+    from app.services.local_llm_service import local_llm_service
+
+    try:
+        db = SessionLocal()
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)}
+    try:
+        body = NewsroomDraftRequest(**payload)
+        result = local_llm_service.draft_newsroom_post(db, body)
+        return {"ok": True, "data": result.model_dump()}
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)}
+    finally:
+        db.close()
+
+
+def audit_source_local(base_url: str, payload: dict[str, Any]) -> dict[str, Any]:
+    from app.schemas.local_newsroom import NewsroomAuditRequest
+    from app.services.local_llm_service import local_llm_service
+
+    try:
+        body = NewsroomAuditRequest(**payload)
+        result = local_llm_service.audit_source(body)
+        return {"ok": True, "data": result.model_dump()}
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)}
+
+
+def save_training_example(base_url: str, payload: dict[str, Any]) -> dict[str, Any]:
+    from app.database import SessionLocal
+    from app.schemas.local_newsroom import SaveTrainingExampleRequest
+    from app.services.local_llm_service import local_llm_service
+
+    try:
+        db = SessionLocal()
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)}
+    try:
+        body = SaveTrainingExampleRequest(**payload)
+        row = local_llm_service.save_training_example(db, body)
+        return {"ok": True, "id": row.id}
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)}
+    finally:
+        db.close()
+
+
+def export_training_jsonl(base_url: str) -> dict[str, Any]:
+    from app.database import SessionLocal
+    from app.services.local_llm_service import local_llm_service
+
+    try:
+        db = SessionLocal()
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)}
+    try:
+        content = local_llm_service.export_training_jsonl(db)
+        return {"ok": True, "content": content}
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)}
+    finally:
+        db.close()

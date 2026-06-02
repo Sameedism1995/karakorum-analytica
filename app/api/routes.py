@@ -31,8 +31,11 @@ from app.services.draft_service import (
     draft_to_dict,
     get_draft,
     list_drafts,
+    regenerate_draft_with_llm,
     reject_draft,
+    update_draft_text,
 )
+from app.services.draft_llm_service import audit_draft_text, get_llm_health
 from app.integrations.supabase_read_service import (
     add_watch_account_rest,
     fetch_dashboard_stats_rest,
@@ -77,6 +80,14 @@ class SpiderFootScanRequest(BaseModel):
     usecase: str = Field(default="passive")
     module_list: str = Field(default="")
     type_list: str = Field(default="")
+
+
+class UpdateDraftRequest(BaseModel):
+    post_text: str = Field(..., min_length=1, max_length=280)
+
+
+class RegenerateDraftRequest(BaseModel):
+    tone: str = Field(default="neutral")
 
 
 @router.get("/health")
@@ -325,6 +336,61 @@ def post_draft_endpoint(draft_id: int, db: Session = Depends(get_db)) -> dict:
     if not result.get("success"):
         raise HTTPException(status_code=403, detail=result.get("error", "Posting failed"))
     return result
+
+
+@router.patch("/drafts/{draft_id}")
+def update_draft_endpoint(
+    draft_id: int,
+    body: UpdateDraftRequest,
+    db: Session = Depends(get_db),
+) -> dict:
+    draft = update_draft_text(db, draft_id, body.post_text)
+    if not draft:
+        raise HTTPException(status_code=404, detail="Draft not found or not editable")
+    return {"ok": True, "draft": draft_to_dict(draft)}
+
+
+@router.post("/drafts/{draft_id}/regenerate")
+def regenerate_draft_endpoint(
+    draft_id: int,
+    body: RegenerateDraftRequest,
+    db: Session = Depends(get_db),
+) -> dict:
+    result = regenerate_draft_with_llm(db, draft_id, tone=body.tone)
+    if not result:
+        raise HTTPException(status_code=404, detail="Draft or linked incident not found")
+    return {"ok": True, **result}
+
+
+@router.post("/drafts/{draft_id}/audit")
+def audit_draft_endpoint(draft_id: int, db: Session = Depends(get_db)) -> dict:
+    draft = get_draft(db, draft_id)
+    if not draft:
+        raise HTTPException(status_code=404, detail="Draft not found")
+    from app.models.incident import Incident
+
+    incident = db.query(Incident).filter(Incident.id == draft.incident_id).first()
+    raw = ""
+    source = ""
+    if incident:
+        from app.services.draft_llm_service import incident_to_raw_text
+
+        raw = incident_to_raw_text(incident)
+        source = f"Grade from confidence {incident.confidence_score:.0f}%; sources: {incident.matched_sources or 'unknown'}"
+    audit = audit_draft_text(
+        draft.post_text or "",
+        source_info=source,
+        raw_report=raw,
+        db=db,
+        location=", ".join(p for p in [incident.city, incident.province] if p) if incident else "",
+        incident_type=(incident.event_type or "") if incident else "",
+    )
+    return {"ok": True, "audit": audit}
+
+
+@router.get("/health/llm")
+def llm_health() -> dict:
+    return {"llm": get_llm_health()}
 
 
 @router.get("/health/spiderfoot")

@@ -13,6 +13,7 @@ from app.env_bootstrap import bootstrap_env
 bootstrap_env()
 
 from app.api.dashboard_routes import router as dashboard_router
+from app.api.llm_routes import router as llm_router
 from app.api.routes import router
 from app.bootstrap import bootstrap_database
 from app.config import get_settings
@@ -35,6 +36,7 @@ app.add_middleware(
 
 app.include_router(router)
 app.include_router(dashboard_router)
+app.include_router(llm_router)
 
 
 def _mount_llm_dashboard() -> None:

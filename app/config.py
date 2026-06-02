@@ -101,6 +101,11 @@ class Settings(BaseSettings):
     openai_api_key: str = ""
     llm_dashboard_path: str = "llm-dashboard/dist"
 
+    # Local Ollama newsroom (no paid API — draft/audit only)
+    local_llm_enabled: bool = False
+    local_llm_base_url: str = "http://localhost:11434"
+    local_llm_model: str = "qwen3:4b"
+
     @property
     def render_scweet_service_names_list(self) -> list[str]:
         if not self.render_scweet_service_names.strip():

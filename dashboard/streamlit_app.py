@@ -21,6 +21,7 @@ bootstrap_env(ROOT)
 
 from dashboard import api_client, embedded_backend
 from dashboard.branding import BRAND_NAME, LOGO_PATH, render_sidebar_logo
+from dashboard.drafts_ui import render_drafts_tab
 from dashboard.incidents_ui import render_incidents_tab
 from dashboard.ingestion_ui import render_ingestion_tab
 from dashboard.sidebar_ui import render_app_sidebar
@@ -34,7 +35,6 @@ from dashboard.ui_components import (
     incidents_to_dataframe,
     inject_styles,
     raw_news_to_dataframe,
-    render_draft_card,
     render_header,
     render_overview_charts,
     render_overview_kpis,
@@ -217,35 +217,14 @@ def main() -> None:
         render_incidents_tab(incident_items, health_ok=health["ok"])
 
     with tab_drafts:
-        st.markdown('<div class="section-title">Draft posts for review</div>', unsafe_allow_html=True)
-        if not health["ok"]:
-            st.warning("Backend unavailable — drafts cannot be loaded.")
-        elif not draft_items:
-            st.info("No draft posts yet. Incidents will generate neutral drafts after collection.")
-        else:
-
-            def handle_draft_action(action: str, draft_id: int) -> None:
-                if action == "approve":
-                    result = backend.approve_draft(draft_id, base_url)
-                elif action == "reject":
-                    result = backend.reject_draft(draft_id, base_url)
-                elif action == "post":
-                    result = backend.post_draft(draft_id, base_url)
-                else:
-                    return
-                if result["ok"]:
-                    st.success(f"Draft #{draft_id} {action}d successfully.")
-                    st.rerun()
-                else:
-                    st.error(result.get("error") or f"Failed to {action} draft #{draft_id}.")
-
-            for draft in draft_items:
-                render_draft_card(
-                    draft,
-                    x_posting_enabled=x_posting_enabled,
-                    base_url=base_url or "embedded",
-                    on_action=handle_draft_action,
-                )
+        render_drafts_tab(
+            backend,
+            base_url,
+            health_ok=health["ok"],
+            draft_items=draft_items,
+            incident_items=incident_items,
+            x_posting_enabled=x_posting_enabled,
+        )
 
     with tab_ingestion:
         render_ingestion_tab(

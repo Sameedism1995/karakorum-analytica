@@ -54,13 +54,34 @@ class LLMClient:
 
     @property
     def is_configured(self) -> bool:
+        settings = get_settings()
+        if settings.local_llm_enabled:
+            return True
         return bool(self.api_key) and self.provider == "openai"
 
+    @property
+    def uses_local_llm(self) -> bool:
+        return get_settings().local_llm_enabled
+
     def complete(self, system_prompt: str, user_prompt: str) -> LLMResult:
-        if self.is_configured:
+        settings = get_settings()
+        if settings.local_llm_enabled:
+            return self._ollama_complete(system_prompt, user_prompt)
+        if bool(self.api_key) and self.provider == "openai":
             return self._openai_complete(system_prompt, user_prompt)
         combined = f"{system_prompt.strip()}\n\n{user_prompt.strip()}".strip()
         return LLMResult(text=combined, provider="placeholder", model="template-v1")
+
+    def _ollama_complete(self, system_prompt: str, user_prompt: str) -> LLMResult:
+        from app.integrations.ollama_client import OllamaError, generate_text
+
+        settings = get_settings()
+        try:
+            text = generate_text(system_prompt, user_prompt)
+            return LLMResult(text=text, provider="ollama", model=settings.local_llm_model)
+        except OllamaError as exc:
+            logger.error(f"Ollama inference failed: {exc}")
+            raise
 
     def _openai_complete(self, system_prompt: str, user_prompt: str) -> LLMResult:
         try:

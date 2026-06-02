@@ -153,6 +153,23 @@ def generate_post(payload: GeneratePostRequest) -> GeneratePostResponse:
         if len(tag) > 2:
             hashtags.append(tag)
 
+    mode = "generated"
+    client = LLMClient()
+    if client.is_configured:
+        prompt = (
+            f"Write one X/Twitter post (max 280 characters) for Karakorum Analytica OSINT.\n"
+            f"Tone: {payload.tone}\n"
+            f"Location: {location}\n"
+            f"Main keyword: {main_kw}\n"
+            f"Incident report:\n{incident}\n\n"
+            f"Attribution: {attribution}\n"
+            "Rules: neutral language, no unverified casualty counts, hedge claims, "
+            "include 2-3 hashtags. Return ONLY the post text."
+        )
+        llm_result = client.complete(SYSTEM_PROMPT, prompt)
+        short_x = llm_result.text.strip()[:280]
+        mode = llm_result.provider
+
     return GeneratePostResponse(
         short_x_post=short_x[:280],
         website_post=website,
@@ -161,7 +178,7 @@ def generate_post(payload: GeneratePostRequest) -> GeneratePostResponse:
         suggested_hashtags=hashtags,
         suggested_keywords=keywords or [main_kw],
         verification_warning=warning,
-        mode="generated",
+        mode=mode,
         editorial_notes=editorial_notes,
     )
 

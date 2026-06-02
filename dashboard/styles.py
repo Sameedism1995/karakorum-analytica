@@ -274,6 +274,26 @@ html, body, [class*="css"] {{
     margin: 0.65rem 0;
 }}
 
+.draft-card {{
+    margin-bottom: 0.5rem;
+}}
+
+.draft-card-header {{
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}}
+
+.llm-audit-box {{
+    background: {ARCTIC_WHITE};
+    border-radius: 8px;
+    padding: 0.65rem 0.85rem;
+    margin: 0.5rem 0;
+    font-size: 0.88rem;
+}}
+
 .section-title {{
     font-size: 1.05rem;
     font-weight: 600;
