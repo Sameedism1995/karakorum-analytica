@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.models.post import Post
-from app.services.buffer_validation_service import validate_post_for_buffer
+from app.services.buffer_validation_service import prepare_post_for_buffer, validate_post_for_buffer
 
 
 def _webhook_configured() -> bool:
@@ -69,11 +69,17 @@ def send_post_to_buffer(db: Session, post_id: int) -> dict[str, Any]:
         return {"ok": False, "error": "Post not found", "status": "failed"}
 
     ok, reason = validate_post_for_buffer(post)
-    logger.info(f"Buffer send post_id={post_id} validation={'pass' if ok else 'fail'} reason={reason or 'ok'}")
+    logger.info(
+        f"Buffer send post_id={post_id} strict={settings.buffer_validation_strict} "
+        f"validation={'pass' if ok else 'fail'} reason={reason or 'ok'}"
+    )
 
     if not ok:
         _mark_failed(db, post, reason)
         return {"ok": False, "error": reason, "status": post.status, "post": post_to_dict(post)}
+
+    db.commit()
+    db.refresh(post)
 
     if not url:
         reason = "ZAPIER_BUFFER_WEBHOOK_URL is not configured on the server"
@@ -124,6 +130,46 @@ def send_post_to_buffer(db: Session, post_id: int) -> dict[str, Any]:
             "http_status": zapier_result.get("http_status"),
             "response": zapier_result.get("response"),
         },
+    }
+
+
+def auto_send_approved_post(db: Session, post_id: int) -> dict[str, Any] | None:
+    """Send to Buffer immediately after human approval when enabled."""
+    settings = get_settings()
+    if not settings.buffer_auto_send_on_approve:
+        return None
+    if not _webhook_configured():
+        logger.warning("Auto-send skipped: ZAPIER_BUFFER_WEBHOOK_URL not configured")
+        return {"ok": False, "error": "ZAPIER_BUFFER_WEBHOOK_URL is not configured", "skipped": True}
+    logger.info(f"Auto-send to Buffer post_id={post_id}")
+    return send_post_to_buffer(db, post_id)
+
+
+def send_all_approved_posts(db: Session, *, limit: int = 50) -> dict[str, Any]:
+    """Send every approved post that has not yet reached Buffer."""
+    posts = (
+        db.query(Post)
+        .filter(Post.status == "approved")
+        .order_by(Post.created_at.asc())
+        .limit(limit)
+        .all()
+    )
+    results: list[dict[str, Any]] = []
+    sent = 0
+    failed = 0
+    for post in posts:
+        result = send_post_to_buffer(db, post.id)
+        results.append({"post_id": post.id, **result})
+        if result.get("ok"):
+            sent += 1
+        else:
+            failed += 1
+    return {
+        "ok": failed == 0,
+        "total": len(posts),
+        "sent": sent,
+        "failed": failed,
+        "results": results,
     }
 
 

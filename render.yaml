@@ -68,6 +68,10 @@ services:
         sync: false
       - key: BUFFER_TEST_SECRET
         sync: false
+      - key: BUFFER_VALIDATION_STRICT
+        value: "false"
+      - key: BUFFER_AUTO_SEND_ON_APPROVE
+        value: "true"
       - key: SCWEET_ENABLED
         sync: false
       - key: SCWEET_USERNAME

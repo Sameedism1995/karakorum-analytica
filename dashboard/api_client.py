@@ -766,6 +766,31 @@ def export_training_jsonl(base_url: str | None) -> dict[str, Any]:
         return {"ok": False, "error": str(exc)}
 
 
+def send_approved_batch(base_url: str | None, *, limit: int = 50) -> dict[str, Any]:
+    import os
+
+    headers: dict[str, str] = {}
+    secret = os.environ.get("BUFFER_TEST_SECRET", "").strip()
+    if secret:
+        headers["X-Admin-Secret"] = secret
+    try:
+        response = requests.post(
+            f"{_base_url(base_url)}/api/posts/send-approved-batch",
+            params={"limit": limit},
+            headers=headers,
+            timeout=300,
+        )
+        try:
+            body = response.json()
+        except ValueError:
+            body = {"error": response.text}
+        if response.ok:
+            return {"ok": True, **body} if isinstance(body, dict) else {"ok": True, "data": body}
+        return {"ok": False, **body} if isinstance(body, dict) else {"ok": False, "error": str(body)}
+    except requests.RequestException as exc:
+        return {"ok": False, "error": str(exc)}
+
+
 def send_post_to_buffer(base_url: str | None, post_id: int) -> dict[str, Any]:
     try:
         response = requests.post(

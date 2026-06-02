@@ -109,6 +109,8 @@ class Settings(BaseSettings):
     # Buffer/X via Zapier (webhook URL must stay in env — never commit)
     zapier_buffer_webhook_url: str = ""
     buffer_test_secret: str = ""
+    buffer_validation_strict: bool = False
+    buffer_auto_send_on_approve: bool = False
 
     @property
     def render_scweet_service_names_list(self) -> list[str]:

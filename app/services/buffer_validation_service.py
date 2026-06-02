@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-import re
-
+from app.config import get_settings
 from app.models.post import Post
+
+DEFAULT_SOURCE_NAME = "Karakorum Analytica OSINT"
 
 CAUTIOUS_PHRASES = (
     "local sources claim",
@@ -48,10 +49,21 @@ SENSITIVE_KEYWORDS = (
 )
 
 
+def prepare_post_for_buffer(post: Post) -> Post:
+    """Fill safe defaults so posts can be sent as-is to Buffer/X."""
+    if not (post.source_name or "").strip() and not (post.source_url or "").strip():
+        post.source_name = DEFAULT_SOURCE_NAME
+    if not (post.headline or "").strip():
+        post.headline = (post.post_text or "")[:70]
+    return post
+
+
 def validate_post_for_buffer(post: Post) -> tuple[bool, str]:
     """Return (ok, error_message). error_message is empty when ok."""
     if post is None:
         return False, "Post not found"
+
+    prepare_post_for_buffer(post)
 
     if post.status != "approved":
         return False, f"Post status must be approved (current: {post.status})"
@@ -63,11 +75,14 @@ def validate_post_for_buffer(post: Post) -> tuple[bool, str]:
     if len(text) > 280:
         return False, f"post_text exceeds 280 characters ({len(text)})"
 
-    if not (post.source_name or "").strip() and not (post.source_url or "").strip():
-        return False, "source_name or source_url must be present"
-
     if post.graphic_content:
         return False, "graphic_content posts cannot be sent via text-only Buffer step"
+
+    if not get_settings().buffer_validation_strict:
+        return True, ""
+
+    if not (post.source_name or "").strip() and not (post.source_url or "").strip():
+        return False, "source_name or source_url must be present"
 
     verification = (post.verification_status or "").strip().lower()
     if verification == "unverified":

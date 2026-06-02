@@ -287,10 +287,13 @@ def approve_draft(draft_id: int, base_url: str = "") -> dict[str, Any]:
     except Exception as exc:
         return {"ok": False, "data": None, "error": str(exc)}
     try:
-        draft = approve_draft_record(db, draft_id)
+        draft, buffer_result = approve_draft_record(db, draft_id)
         if not draft:
             return {"ok": False, "data": None, "error": "Draft not found"}
-        return {"ok": True, "data": {"draft": draft_to_dict(draft)}, "error": None}
+        data: dict[str, Any] = {"draft": draft_to_dict(draft)}
+        if buffer_result is not None:
+            data["buffer"] = buffer_result
+        return {"ok": True, "data": data, "error": None}
     finally:
         db.close()
 
@@ -708,6 +711,20 @@ def export_training_jsonl(base_url: str) -> dict[str, Any]:
         return {"ok": True, "content": content}
     except Exception as exc:
         return {"ok": False, "error": str(exc)}
+    finally:
+        db.close()
+
+
+def send_approved_batch(base_url: str, *, limit: int = 50) -> dict[str, Any]:
+    from app.database import SessionLocal
+    from app.services.zapier_buffer_service import send_all_approved_posts
+
+    try:
+        db = SessionLocal()
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)}
+    try:
+        return send_all_approved_posts(db, limit=limit)
     finally:
         db.close()
 

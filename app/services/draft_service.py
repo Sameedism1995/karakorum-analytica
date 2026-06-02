@@ -8,6 +8,7 @@ from app.models.incident import Incident
 from app.processors.post_generator import generate_draft_post
 from app.services.draft_llm_service import generate_post_text_for_incident, incident_to_raw_text
 from app.services.post_service import approve_post_for_draft, sync_post_from_draft
+from app.services.zapier_buffer_service import auto_send_approved_post
 
 
 def generate_drafts_for_incidents(db: Session) -> dict[str, int]:
@@ -63,16 +64,19 @@ def get_draft(db: Session, draft_id: int) -> DraftPost | None:
     )
 
 
-def approve_draft(db: Session, draft_id: int) -> DraftPost | None:
+def approve_draft(db: Session, draft_id: int) -> tuple[DraftPost | None, dict | None]:
     draft = get_draft(db, draft_id)
     if not draft:
-        return None
+        return None, None
     draft.status = "approved"
     draft.approved_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(draft)
-    approve_post_for_draft(db, draft)
-    return draft
+    post = approve_post_for_draft(db, draft)
+    buffer_result = auto_send_approved_post(db, post.id)
+    if buffer_result and buffer_result.get("ok"):
+        draft = get_draft(db, draft_id)
+    return draft, buffer_result
 
 
 def reject_draft(db: Session, draft_id: int) -> DraftPost | None:

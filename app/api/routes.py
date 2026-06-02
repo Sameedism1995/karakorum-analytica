@@ -313,10 +313,17 @@ def get_drafts(limit: int = 100, db: Session = Depends(get_db)) -> dict:
 
 @router.post("/drafts/{draft_id}/approve")
 def approve_draft_endpoint(draft_id: int, db: Session = Depends(get_db)) -> dict:
-    draft = approve_draft(db, draft_id)
+    draft, buffer_result = approve_draft(db, draft_id)
     if not draft:
         raise HTTPException(status_code=404, detail="Draft not found")
-    return {"message": "Draft approved", "draft": draft_to_dict(draft)}
+    payload = {"message": "Draft approved", "draft": draft_to_dict(draft)}
+    if buffer_result is not None:
+        payload["buffer"] = buffer_result
+        if buffer_result.get("ok"):
+            payload["message"] = "Draft approved and sent to Buffer/X"
+        elif not buffer_result.get("skipped"):
+            payload["message"] = "Draft approved but Buffer send failed"
+    return payload
 
 
 @router.post("/drafts/{draft_id}/reject")

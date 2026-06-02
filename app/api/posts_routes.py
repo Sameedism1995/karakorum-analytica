@@ -9,7 +9,11 @@ from sqlalchemy.orm import Session
 from app.config import get_settings
 from app.database import get_db
 from app.services.post_service import get_post
-from app.services.zapier_buffer_service import send_post_to_buffer, send_test_payload
+from app.services.zapier_buffer_service import (
+    send_all_approved_posts,
+    send_post_to_buffer,
+    send_test_payload,
+)
 
 router = APIRouter(prefix="/api", tags=["posts"])
 
@@ -33,6 +37,20 @@ def send_to_buffer(post_id: int, db: Session = Depends(get_db)):
     """Validate and send an approved post to Buffer via Zapier. Never auto-publishes drafts."""
     result = send_post_to_buffer(db, post_id)
     if not result.get("ok"):
+        return JSONResponse(status_code=400, content=result)
+    return result
+
+
+@router.post("/posts/send-approved-batch")
+def send_approved_batch(
+    limit: int = 50,
+    db: Session = Depends(get_db),
+    x_admin_secret: str | None = Header(default=None, alias="X-Admin-Secret"),
+):
+    """Send all approved posts to Buffer (admin secret required in production)."""
+    _require_test_access(x_admin_secret)
+    result = send_all_approved_posts(db, limit=limit)
+    if not result.get("ok") and result.get("total", 0) > 0:
         return JSONResponse(status_code=400, content=result)
     return result
 

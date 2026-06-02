@@ -305,7 +305,14 @@ def _render_draft_card(
             if st.button("Approve", key=f"approve_{draft_id}", type="primary"):
                 result = backend.approve_draft(draft_id, base_url)
                 if result.get("ok"):
-                    st.success("Approved.")
+                    data = result.get("data") or {}
+                    buffer = data.get("buffer") or {}
+                    if buffer.get("ok"):
+                        st.success("Approved and sent to Buffer/X.")
+                    elif buffer and not buffer.get("skipped"):
+                        st.warning(f"Approved, but Buffer send failed: {buffer.get('error')}")
+                    else:
+                        st.success("Approved.")
                     st.rerun()
                 else:
                     st.error(result.get("error") or "Approve failed.")
@@ -572,3 +579,21 @@ def render_drafts_tab(
                 )
             else:
                 st.error(result.get("error") or "Export failed.")
+
+    with st.expander("Buffer / X posting"):
+        st.caption(
+            "Relaxed mode: posts go to Buffer as-is when approved (auto-send enabled on API). "
+            "Use bulk send for already-approved posts."
+        )
+        batch_limit = st.number_input("Batch limit", min_value=1, max_value=100, value=25, key="buffer_batch_limit")
+        if st.button("Send all approved to Buffer/X", key="send_approved_batch"):
+            with st.spinner("Sending approved posts…"):
+                result = backend.send_approved_batch(base_url, limit=int(batch_limit))
+            if result.get("ok"):
+                st.success(
+                    f"Sent {result.get('sent', 0)} post(s) to Buffer "
+                    f"({result.get('failed', 0)} failed)."
+                )
+                st.rerun()
+            else:
+                st.error(result.get("error") or f"Batch send failed ({result.get('failed', 0)} failed).")
