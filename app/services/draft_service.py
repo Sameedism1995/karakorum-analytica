@@ -8,7 +8,8 @@ from app.models.incident import Incident
 from app.processors.post_generator import generate_draft_post
 from app.services.draft_llm_service import generate_post_text_for_incident, incident_to_raw_text
 from app.services.post_service import approve_post_for_draft, sync_post_from_draft
-from app.services.buffer_posting_service import auto_send_approved_post
+from app.services.buffer_validation_service import grade_from_confidence
+from app.services.post_service import approve_post_for_draft, sync_post_from_draft
 
 
 def generate_drafts_for_incidents(db: Session) -> dict[str, int]:
@@ -27,6 +28,7 @@ def generate_drafts_for_incidents(db: Session) -> dict[str, int]:
             continue
 
         post_text, _meta = generate_post_text_for_incident(db, incident)
+        post_text = sanitize_draft_post_text(post_text)[:280]
 
         draft = DraftPost(
             incident_id=incident.id,
@@ -46,19 +48,29 @@ def generate_drafts_for_incidents(db: Session) -> dict[str, int]:
 
 
 def list_drafts(db: Session, limit: int = 100) -> list[DraftPost]:
-    return (
+    drafts = (
         db.query(DraftPost)
-        .options(joinedload(DraftPost.post))
+        .options(joinedload(DraftPost.post), joinedload(DraftPost.incident))
         .order_by(DraftPost.created_at.desc())
         .limit(limit)
         .all()
     )
+    dirty = False
+    for draft in drafts:
+        cleaned = sanitize_draft_post_text(draft.post_text or "")
+        if cleaned != (draft.post_text or ""):
+            draft.post_text = cleaned[:280]
+            sync_post_from_draft(db, draft, incident=draft.incident)
+            dirty = True
+    if dirty:
+        db.commit()
+    return drafts
 
 
 def get_draft(db: Session, draft_id: int) -> DraftPost | None:
     return (
         db.query(DraftPost)
-        .options(joinedload(DraftPost.post))
+        .options(joinedload(DraftPost.post), joinedload(DraftPost.incident))
         .filter(DraftPost.id == draft_id)
         .first()
     )
@@ -95,7 +107,7 @@ def update_draft_text(db: Session, draft_id: int, post_text: str) -> DraftPost |
         return None
     if draft.status not in ("pending", "approved"):
         return None
-    draft.post_text = post_text.strip()[:280]
+    draft.post_text = sanitize_draft_post_text(post_text)[:280]
     db.commit()
     db.refresh(draft)
     sync_post_from_draft(db, draft)
@@ -115,22 +127,44 @@ def regenerate_draft_with_llm(
     if not incident:
         return None
     post_text, meta = generate_post_text_for_incident(db, incident, tone=tone)
-    draft.post_text = post_text
+    draft.post_text = sanitize_draft_post_text(post_text)[:280]
     draft.status = "pending"
     db.commit()
     db.refresh(draft)
     sync_post_from_draft(db, draft)
-    return {"draft": draft_to_dict(draft), "llm": meta}
+    return {"draft": draft_to_dict(draft, incident=incident), "llm": meta}
 
 
-def draft_to_dict(draft: DraftPost, *, post=None) -> dict:
+def _primary_source_name(incident: Incident | None, post_row) -> str:
+    if post_row and (post_row.source_name or "").strip():
+        raw = post_row.source_name.strip()
+    elif incident and (incident.matched_sources or "").strip():
+        raw = incident.matched_sources.split(",")[0].strip()
+    else:
+        return "Open-source"
+    # Friendly label without embedding in tweet text
+    if "/" in raw:
+        return raw.split("/")[0].strip() or raw
+    return raw[:80]
+
+
+def draft_to_dict(draft: DraftPost, *, incident: Incident | None = None, post=None) -> dict:
     post_row = post if post is not None else getattr(draft, "post", None)
+    source_grade = (
+        (post_row.source_grade if post_row and post_row.source_grade else None)
+        or grade_from_confidence(float(draft.confidence_score or 0))
+    )
+    source_name = _primary_source_name(incident, post_row)
+    clean_text = sanitize_draft_post_text(draft.post_text or "")
+
     payload = {
         "id": draft.id,
         "incident_id": draft.incident_id,
-        "post_text": draft.post_text,
+        "post_text": clean_text,
         "keywords": draft.keywords,
         "confidence_score": draft.confidence_score,
+        "source_name": source_name,
+        "source_grade": source_grade,
         "status": draft.status,
         "created_at": draft.created_at.isoformat(),
         "approved_at": draft.approved_at.isoformat() if draft.approved_at else None,

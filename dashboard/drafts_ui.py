@@ -171,6 +171,9 @@ def _render_draft_card(
         p for p in [(incident or {}).get("city"), (incident or {}).get("province")] if p
     ) or "Pakistan"
 
+    source_name = draft.get("source_name") or (incident or {}).get("matched_sources", "").split(",")[0].strip() or "Open-source"
+    source_grade = draft.get("source_grade") or "—"
+
     st.markdown(
         f"""
         <div class="item-card draft-card">
@@ -179,6 +182,8 @@ def _render_draft_card(
                 <div>{status_badge_html(status)}</div>
             </div>
             <div class="item-meta"><strong>Location:</strong> {location} ·
+            <strong>Source:</strong> {source_name} ·
+            <strong>Reliability:</strong> {source_grade} ·
             <strong>Confidence:</strong> {float(draft.get('confidence_score') or 0):.1f}% ·
             <strong>Chars:</strong> {_char_meter(post_text)}</div>
         </div>

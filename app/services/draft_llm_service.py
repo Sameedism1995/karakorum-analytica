@@ -12,6 +12,7 @@ from app.models.incident import Incident
 from app.processors.post_generator import generate_draft_post
 from app.schemas.llm_dashboard import AuditPostRequest, GeneratePostRequest
 from app.schemas.local_newsroom import NewsroomAuditRequest, NewsroomDraftRequest
+from app.services.draft_text_clean import sanitize_draft_post_text
 from app.services.llm_newsroom_service import audit_post, generate_post
 from app.services.local_llm_service import get_local_llm_health, local_llm_service
 
@@ -103,7 +104,7 @@ def generate_post_text_for_incident(
                 "publish_recommendation": draft.publish_recommendation,
                 "provider": draft.provider,
             }
-            return draft.post_text[:280], meta
+            return sanitize_draft_post_text(draft.post_text)[:280], meta
         except OllamaError as exc:
             logger.warning(f"Local LLM draft failed, falling back to template: {exc}")
 
@@ -142,8 +143,10 @@ def generate_post_text_for_incident(
         "hashtags": response.suggested_hashtags,
         "verification_warning": response.verification_warning,
         "editorial_notes": response.editorial_notes,
+        "source_grade": _grade_from_confidence(incident.confidence_score),
+        "source_name": (incident.matched_sources or "Open-source").split(",")[0].strip(),
     }
-    return text[:280], meta
+    return sanitize_draft_post_text(text)[:280], meta
 
 
 def audit_draft_text(

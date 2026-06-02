@@ -305,7 +305,7 @@ def get_drafts(limit: int = 100, db: Session = Depends(get_db)) -> dict:
     return sql_or_rest(
         lambda: {
             "count": len(records := list_drafts(db, limit=limit)),
-            "items": [draft_to_dict(r) for r in records],
+            "items": [draft_to_dict(r, incident=r.incident) for r in records],
         },
         lambda: fetch_drafts_rest(limit=limit),
     )
@@ -316,7 +316,7 @@ def approve_draft_endpoint(draft_id: int, db: Session = Depends(get_db)) -> dict
     draft, buffer_result = approve_draft(db, draft_id)
     if not draft:
         raise HTTPException(status_code=404, detail="Draft not found")
-    payload = {"message": "Draft approved", "draft": draft_to_dict(draft)}
+    payload = {"message": "Draft approved", "draft": draft_to_dict(draft, incident=draft.incident)}
     if buffer_result is not None:
         payload["buffer"] = buffer_result
         if buffer_result.get("ok"):
@@ -331,7 +331,7 @@ def reject_draft_endpoint(draft_id: int, db: Session = Depends(get_db)) -> dict:
     draft = reject_draft(db, draft_id)
     if not draft:
         raise HTTPException(status_code=404, detail="Draft not found")
-    return {"message": "Draft rejected", "draft": draft_to_dict(draft)}
+    return {"message": "Draft rejected", "draft": draft_to_dict(draft, incident=draft.incident)}
 
 
 @router.post("/drafts/{draft_id}/post")
@@ -354,7 +354,7 @@ def update_draft_endpoint(
     draft = update_draft_text(db, draft_id, body.post_text)
     if not draft:
         raise HTTPException(status_code=404, detail="Draft not found or not editable")
-    return {"ok": True, "draft": draft_to_dict(draft)}
+    return {"ok": True, "draft": draft_to_dict(draft, incident=draft.incident)}
 
 
 @router.post("/drafts/{draft_id}/regenerate")

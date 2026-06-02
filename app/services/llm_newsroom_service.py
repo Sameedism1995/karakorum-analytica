@@ -54,8 +54,8 @@ def _location_label(region: str, country: str, city: str) -> str:
 
 
 def _attribution_line(source_type: str, grade: str) -> str:
-    src = source_type.strip() or "open-source reports"
-    return f"Based on {src} (reliability grade {normalize_grade(grade)})."
+    """Deprecated: source/grade shown in dashboard metadata only."""
+    return ""
 
 
 def _tone_prefix(tone: str) -> str:
@@ -90,8 +90,7 @@ def generate_post(payload: GeneratePostRequest) -> GeneratePostResponse:
                 f"Karakorum Analytica is monitoring open-source reporting related to "
                 f"{payload.main_keyword or 'regional security'} in {location}.\n\n"
                 "No verified incident narrative was supplied. This is a placeholder draft "
-                "pending source verification.\n\n"
-                + _attribution_line(payload.source_type, grade)
+                "pending source verification."
             ),
             seo_headline=f"{payload.main_keyword or 'Pakistan security'} — monitoring update",
             meta_description=(
@@ -107,7 +106,6 @@ def generate_post(payload: GeneratePostRequest) -> GeneratePostResponse:
 
     incident = payload.raw_incident_text.strip()
     main_kw = payload.main_keyword or keywords[0] if keywords else "security incident"
-    attribution = _attribution_line(payload.source_type, grade)
     warning = None
 
     if grade in {"D", "E"}:
@@ -118,20 +116,17 @@ def generate_post(payload: GeneratePostRequest) -> GeneratePostResponse:
     short_x = (
         f"{_tone_prefix(payload.tone)}"
         f"Open-source reports indicate activity related to {main_kw} in {location}. "
-        f"{attribution} Further verification recommended. "
         f"{' '.join('#' + k.replace(' ', '') for k in keywords[:3] if k)}"
     ).strip()
     if payload.tone == "short":
         short_x = (
-            f"{_tone_prefix(payload.tone)}Reports: {main_kw} in {location}. "
-            f"Unverified. {attribution}"
+            f"{_tone_prefix(payload.tone)}Reports: {main_kw} in {location}."
         )
 
     website = (
         f"Open-source reporting — {payload.incident_category or 'Security update'}\n"
         f"Location: {location}\n\n"
         f"{incident}\n\n"
-        f"{attribution}\n\n"
         "This summary is based on supplied source material and has not been independently "
         "verified by Karakorum Analytica."
     )
@@ -162,8 +157,10 @@ def generate_post(payload: GeneratePostRequest) -> GeneratePostResponse:
             f"Location: {location}\n"
             f"Main keyword: {main_kw}\n"
             f"Incident report:\n{incident}\n\n"
-            f"Attribution: {attribution}\n"
+            f"Source type (metadata only, do not paste into post): {payload.source_type}\n"
+            f"Reliability grade (metadata only): {grade}\n"
             "Rules: neutral language, no unverified casualty counts, hedge claims, "
+            "do NOT include 'Based on' or reliability grade lines in the post, "
             "include 2-3 hashtags. Return ONLY the post text."
         )
         llm_result = client.complete(SYSTEM_PROMPT, prompt)
