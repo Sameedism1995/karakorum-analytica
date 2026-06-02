@@ -18,7 +18,7 @@ def _draft_status_to_post_status(draft_status: str) -> str:
         "pending": "needs_review",
         "approved": "approved",
         "rejected": "failed",
-        "posted": "sent_to_buffer",
+        "posted": "posted",
     }
     return mapping.get(draft_status, "drafted")
 
@@ -50,7 +50,12 @@ def sync_post_from_draft(db: Session, draft: DraftPost, *, incident: Incident | 
         post.verification_status = "unverified"
     post.status = _draft_status_to_post_status(draft.status)
 
-    if draft.status == "approved" and post.status not in ("sent_to_buffer",):
+    if draft.status == "posted" and post.status != "posted":
+        post.status = "posted"
+        if draft.posted_at:
+            post.posted_at = draft.posted_at
+        post.sent_to_buffer_at = post.sent_to_buffer_at or draft.posted_at
+    elif draft.status == "approved" and post.status not in ("posted", "sent_to_buffer"):
         post.status = "approved"
         post.error_message = None
         post.failed_at = None

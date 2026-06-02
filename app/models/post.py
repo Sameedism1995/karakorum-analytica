@@ -32,6 +32,7 @@ class Post(Base, TimestampMixin):
     editor_notes: Mapped[list | dict | str | None] = mapped_column(JSON, nullable=True)
     publish_recommendation: Mapped[str | None] = mapped_column(String(64), nullable=True)
     approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    posted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     buffer_response: Mapped[dict | list | str | None] = mapped_column(JSON, nullable=True)
     sent_to_buffer_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     failed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

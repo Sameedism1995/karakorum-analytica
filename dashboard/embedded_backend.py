@@ -806,18 +806,14 @@ def draft_local_post(base_url: str, payload: dict[str, Any]) -> dict[str, Any]:
 
 def approve_post(base_url: str, post_id: int) -> dict[str, Any]:
     from app.database import SessionLocal
-    from app.services.post_service import approve_post_by_id
-    from app.services.buffer_posting_service import post_to_dict
+    from app.services.post_approval_service import approve_and_post_now
 
     try:
         db = SessionLocal()
     except Exception as exc:
         return {"ok": False, "error": str(exc)}
     try:
-        post = approve_post_by_id(db, post_id)
-        return {"ok": True, "post": post_to_dict(post)}
-    except ValueError as exc:
-        return {"ok": False, "error": str(exc)}
+        return approve_and_post_now(db, post_id)
     finally:
         db.close()
 

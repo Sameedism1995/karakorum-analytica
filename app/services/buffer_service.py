@@ -10,11 +10,11 @@ from app.config import get_settings
 from app.integrations.buffer_client import (
     BufferApiError,
     channel_matches_handle,
-    create_text_post,
     fetch_channels,
     find_channel_by_handle,
     is_buffer_configured,
-    normalize_handle,
+    post_now_text_post,
+    queue_text_post,
 )
 
 
@@ -103,7 +103,14 @@ class BufferService:
             ],
         }
 
-    def queue_text_post(self, text: str, *, channel_id: str | None = None) -> dict[str, Any]:
+    def _publish(
+        self,
+        text: str,
+        *,
+        channel_id: str | None,
+        publish_fn,
+        log_label: str,
+    ) -> dict[str, Any]:
         if not self.is_configured():
             return {"ok": False, "error": "BUFFER_API_KEY is not configured"}
 
@@ -115,16 +122,17 @@ class BufferService:
             return {"ok": False, "error": resolution.get("error") or "Buffer channel not found", "resolution": resolution}
 
         try:
-            result = create_text_post(text=text, channel_id=resolved_id)
+            result = publish_fn(text=text, channel_id=resolved_id)
             return {
                 "ok": True,
                 "channel_id": resolved_id,
                 "buffer_response": result.get("response"),
                 "post": result.get("post"),
+                "mode": result.get("mode"),
                 "resolution": resolution,
             }
         except BufferApiError as exc:
-            logger.error(f"Buffer queue post failed channel_id={resolved_id}: {exc}")
+            logger.error(f"Buffer {log_label} failed channel_id={resolved_id}: {exc}")
             return {
                 "ok": False,
                 "error": str(exc),
@@ -133,35 +141,73 @@ class BufferService:
                 "http_status": exc.http_status,
             }
 
+    def queue_post_to_buffer(self, text: str, *, channel_id: str | None = None) -> dict[str, Any]:
+        """Add text post to Buffer queue (addToQueue) — optional admin path."""
+        return self._publish(text, channel_id=channel_id, publish_fn=queue_text_post, log_label="queue")
+
+    def post_now_to_buffer(self, text: str, *, channel_id: str | None = None) -> dict[str, Any]:
+        """Publish text immediately to connected X account (shareNow)."""
+        return self._publish(text, channel_id=channel_id, publish_fn=post_now_text_post, log_label="publish-now")
+
+    def queue_text_post(self, text: str, *, channel_id: str | None = None) -> dict[str, Any]:
+        """Backward-compatible alias for queue_post_to_buffer."""
+        return self.queue_post_to_buffer(text, channel_id=channel_id)
+
 
 buffer_service = BufferService()
+
+
+def _safe_channel_summary(channels: list[dict[str, Any]], handle: str) -> list[dict[str, Any]]:
+    return [
+        {
+            "id": ch.get("id"),
+            "name": ch.get("name"),
+            "displayName": ch.get("displayName"),
+            "service": ch.get("service"),
+            "descriptor": ch.get("descriptor"),
+            "matches_handle": channel_matches_handle(ch, handle),
+        }
+        for ch in channels
+    ]
 
 
 def get_buffer_health() -> dict[str, Any]:
     """Standard health payload for GET /api/health/buffer — never exposes API key."""
     settings = get_settings()
+    handle = settings.buffer_channel_handle or "@kkanalytica"
     configured = buffer_service.is_configured()
     if not configured:
         return {
             "api_key_configured": False,
-            "channel_handle": settings.buffer_channel_handle or "@kkanalytica",
+            "channel_handle": handle,
             "channel_found": False,
             "channel_id": None,
+            "available_channels": [],
             "error": "BUFFER_API_KEY is not configured",
         }
 
+    list_result = buffer_service.list_channels()
+    channels = list_result.get("channels") or []
+    safe_channels = _safe_channel_summary(channels, handle)
+
     channel_id, resolution = buffer_service.resolve_channel_id()
     channel_found = bool(channel_id)
-    error = None if channel_found else resolution.get("error") or "Buffer channel not found"
+    error = None
+    if not list_result.get("ok"):
+        error = list_result.get("error") or "Failed to list Buffer channels"
+    elif not channel_found:
+        error = resolution.get("error") or "Buffer channel not found"
+
     if channel_found:
-        logger.info(f"Buffer health ok channel_id={channel_id[:8]}… handle={settings.buffer_channel_handle}")
+        logger.info(f"Buffer health ok channel_id={channel_id[:8]}… handle={handle}")
     else:
         logger.warning(f"Buffer health channel not found: {error}")
 
     return {
         "api_key_configured": True,
-        "channel_handle": settings.buffer_channel_handle or "@kkanalytica",
+        "channel_handle": handle,
         "channel_found": channel_found,
         "channel_id": channel_id,
+        "available_channels": safe_channels,
         "error": error,
     }

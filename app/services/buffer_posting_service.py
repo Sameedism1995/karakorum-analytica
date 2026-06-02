@@ -33,6 +33,7 @@ def post_to_dict(post: Post) -> dict[str, Any]:
         "editor_notes": post.editor_notes,
         "publish_recommendation": post.publish_recommendation,
         "approved_at": post.approved_at.isoformat() if post.approved_at else None,
+        "posted_at": post.posted_at.isoformat() if getattr(post, "posted_at", None) else None,
         "buffer_response": post.buffer_response,
         "sent_to_buffer_at": post.sent_to_buffer_at.isoformat() if post.sent_to_buffer_at else None,
         "failed_at": post.failed_at.isoformat() if post.failed_at else None,
@@ -79,7 +80,7 @@ def send_post_to_buffer(db: Session, post_id: int) -> dict[str, Any]:
         f"resolution_source={resolution.get('source', 'unknown')}"
     )
 
-    buffer_result = buffer_service.queue_text_post(post.post_text, channel_id=channel_id)
+    buffer_result = buffer_service.queue_post_to_buffer(post.post_text, channel_id=channel_id)
 
     if buffer_result.get("ok"):
         post.status = "sent_to_buffer"

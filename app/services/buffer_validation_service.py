@@ -57,15 +57,12 @@ def prepare_post_for_buffer(post: Post) -> Post:
     return post
 
 
-def validate_post_for_buffer(post: Post) -> tuple[bool, str]:
-    """Return (ok, error_message). error_message is empty when ok."""
+def _validate_post_content(post: Post) -> tuple[bool, str]:
+    """Shared content rules for approval and Buffer send."""
     if post is None:
         return False, "Post not found"
 
     prepare_post_for_buffer(post)
-
-    if post.status != "approved":
-        return False, f"Post status must be approved (current: {post.status})"
 
     text = (post.post_text or "").strip()
     if not text:
@@ -79,6 +76,16 @@ def validate_post_for_buffer(post: Post) -> tuple[bool, str]:
 
     if post.graphic_content:
         return False, "graphic_content posts cannot be sent via text-only Buffer posting"
+
+    verification = (post.verification_status or "").strip().lower()
+    if verification == "unverified":
+        if not _contains_any(text, CAUTIOUS_PHRASES):
+            return False, (
+                "Unverified posts must include at least one cautious phrase: "
+                '"Local sources claim", "Initial reports suggest", '
+                '"Official confirmation is pending", or '
+                '"The claim could not be independently verified"'
+            )
 
     grade = (post.source_grade or "").strip().upper()[:1]
     if grade in {"D", "E"}:
@@ -95,6 +102,24 @@ def validate_post_for_buffer(post: Post) -> tuple[bool, str]:
         )
 
     return True, ""
+
+
+def validate_post_for_approval(post: Post) -> tuple[bool, str]:
+    """Validate before human approval + immediate publish (needs_review or drafted only)."""
+    if post is None:
+        return False, "Post not found"
+    if post.status not in {"needs_review", "drafted"}:
+        return False, f"Post cannot be approved from status '{post.status}' (must be needs_review or drafted)"
+    return _validate_post_content(post)
+
+
+def validate_post_for_buffer(post: Post) -> tuple[bool, str]:
+    """Validate before queue send (must already be approved)."""
+    if post is None:
+        return False, "Post not found"
+    if post.status != "approved":
+        return False, f"Post status must be approved (current: {post.status})"
+    return _validate_post_content(post)
 
 
 def _contains_any(text: str, phrases: tuple[str, ...]) -> bool:

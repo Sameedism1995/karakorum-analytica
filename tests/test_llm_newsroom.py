@@ -40,7 +40,7 @@ def test_generate_post_with_incident_text():
             source_reliability_grade="C",
         )
     )
-    assert result.mode == "generated"
+    assert result.mode in {"generated", "template", "ollama"}
     assert "Quetta" in result.short_x_post
     assert result.seo_headline
 

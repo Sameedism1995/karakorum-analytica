@@ -175,7 +175,8 @@ def find_channel_by_handle(handle: str, channels: list[dict[str, Any]] | None = 
     return None
 
 
-def create_text_post(*, text: str, channel_id: str) -> dict[str, Any]:
+def create_text_post(*, text: str, channel_id: str, mode: str = "addToQueue") -> dict[str, Any]:
+    """Create a Buffer post. mode: addToQueue (queue) or shareNow (publish immediately)."""
     body = graphql_request(
         CREATE_POST_MUTATION,
         variables={
@@ -183,7 +184,7 @@ def create_text_post(*, text: str, channel_id: str) -> dict[str, Any]:
                 "text": text,
                 "channelId": channel_id,
                 "schedulingType": "automatic",
-                "mode": "addToQueue",
+                "mode": mode,
             }
         },
     )
@@ -193,5 +194,13 @@ def create_text_post(*, text: str, channel_id: str) -> dict[str, Any]:
     post = result.get("post")
     if not post:
         raise BufferApiError("Buffer createPost returned no post", response=body)
-    logger.info(f"Buffer createPost success post_id={post.get('id')}")
-    return {"ok": True, "response": body, "post": post}
+    logger.info(f"Buffer createPost mode={mode} success post_id={post.get('id')}")
+    return {"ok": True, "response": body, "post": post, "mode": mode}
+
+
+def queue_text_post(*, text: str, channel_id: str) -> dict[str, Any]:
+    return create_text_post(text=text, channel_id=channel_id, mode="addToQueue")
+
+
+def post_now_text_post(*, text: str, channel_id: str) -> dict[str, Any]:
+    return create_text_post(text=text, channel_id=channel_id, mode="shareNow")

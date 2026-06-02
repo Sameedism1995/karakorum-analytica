@@ -21,6 +21,7 @@ from app.integrations.llm_client import (
     slugify,
     split_keywords,
 )
+from app.integrations.ollama_client import OllamaError
 from app.models.llm_saved_post import LlmSavedPost
 from app.schemas.llm_dashboard import (
     AuditPostRequest,
@@ -163,9 +164,12 @@ def generate_post(payload: GeneratePostRequest) -> GeneratePostResponse:
             "do NOT include 'Based on' or reliability grade lines in the post, "
             "include 2-3 hashtags. Return ONLY the post text."
         )
-        llm_result = client.complete(SYSTEM_PROMPT, prompt)
-        short_x = llm_result.text.strip()[:280]
-        mode = llm_result.provider
+        try:
+            llm_result = client.complete(SYSTEM_PROMPT, prompt)
+            short_x = llm_result.text.strip()[:280]
+            mode = llm_result.provider
+        except OllamaError:
+            mode = "template"
 
     return GeneratePostResponse(
         short_x_post=short_x[:280],

@@ -134,10 +134,13 @@ def get_render_api_key() -> str:
 
 def get_render_service_ids() -> list[str]:
     """Resolve Render service ID(s) from environment."""
+    single = os.environ.get("RENDER_SERVICE_ID", "").strip()
+    if single:
+        return [single]
+
     raw = (
         os.environ.get("RENDER_SERVICE_IDS", "").strip()
         or os.environ.get("RENDER_SCWEET_SERVICE_IDS", "").strip()
-        or os.environ.get("RENDER_SERVICE_ID", "").strip()
     )
     if not raw:
         raise RuntimeError(

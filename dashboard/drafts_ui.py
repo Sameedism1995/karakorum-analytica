@@ -11,12 +11,12 @@ from dashboard.ui_components import format_datetime, status_badge_html
 from dashboard.widget_state import prepare_widgets
 
 TONE_OPTIONS = ["neutral", "urgent", "detailed", "short"]
-STATUS_FILTERS = ["All", "pending", "approved", "sent_to_buffer", "failed", "rejected", "posted"]
+STATUS_FILTERS = ["All", "pending", "approved", "posted", "failed", "rejected"]
 PUBLISH_STATUS_LABELS = {
     "drafted": "Drafted",
     "needs_review": "Needs review",
     "approved": "Approved",
-    "sent_to_buffer": "Sent to Buffer",
+    "posted": "Posted",
     "failed": "Failed",
 }
 RISK_COLORS = {
@@ -137,20 +137,24 @@ def _display_publish_status(draft: dict[str, Any]) -> None:
     if not publish_status:
         return
     label = PUBLISH_STATUS_LABELS.get(publish_status, publish_status.replace("_", " ").title())
-    st.markdown(
-        f"**Publish queue:** {status_badge_html(publish_status)} · {label}",
-        unsafe_allow_html=True,
-    )
+    st.markdown(f"**Publish status:** {status_badge_html(publish_status)} · {label}", unsafe_allow_html=True)
+    if draft.get("approved_at"):
+        st.caption(f"Approved {format_datetime(draft.get('approved_at'))}")
+    if draft.get("posted_at"):
+        st.caption(f"Posted {format_datetime(draft.get('posted_at'))}")
     if publish_status == "failed" and draft.get("error_message"):
         st.error(draft["error_message"])
-    if publish_status == "sent_to_buffer" and draft.get("sent_to_buffer_at"):
-        st.caption(f"Sent to Buffer {format_datetime(draft.get('sent_to_buffer_at'))}")
+    if draft.get("failed_at"):
+        st.caption(f"Failed {format_datetime(draft.get('failed_at'))}")
+    if draft.get("buffer_response"):
+        with st.expander("Buffer response (debug)", expanded=False):
+            st.json(draft.get("buffer_response"))
 
 
 def _filter_drafts(drafts: list[dict[str, Any]], status: str) -> list[dict[str, Any]]:
     if status == "All":
         return drafts
-    if status in {"sent_to_buffer", "failed"}:
+    if status in {"posted", "failed"}:
         return [d for d in drafts if d.get("publish_status") == status]
     return [d for d in drafts if d.get("status") == status]
 
@@ -312,28 +316,22 @@ def _render_draft_card(
         return
 
     publish_status = draft.get("publish_status") or ""
-    post_id = draft.get("post_id")
-    can_send_buffer = (
-        draft.get("publish_status") == "approved" or (status == "approved" and not publish_status)
-    ) and publish_status != "sent_to_buffer"
+    can_approve_post_now = publish_status in {"needs_review", "drafted"} or (
+        status == "pending" and not publish_status
+    )
 
     c1, c2, c3, c4 = st.columns(4)
     with c1:
-        if status not in ("approved", "posted", "rejected"):
-            if st.button("Approve", key=f"approve_{draft_id}", type="primary"):
-                result = backend.approve_draft(draft_id, base_url)
+        if can_approve_post_now:
+            st.caption("Approve and post this immediately to X?")
+            if st.button("Approve & Post Now", key=f"approve_{draft_id}", type="primary"):
+                with st.spinner("Approving and posting to X…"):
+                    result = backend.approve_draft(draft_id, base_url)
                 if result.get("ok"):
-                    data = result.get("data") or {}
-                    buffer = data.get("buffer") or {}
-                    if buffer.get("ok"):
-                        st.success("Approved and sent to Buffer/X.")
-                    elif buffer and not buffer.get("skipped"):
-                        st.warning(f"Approved, but Buffer send failed: {buffer.get('error')}")
-                    else:
-                        st.success("Approved.")
+                    st.success("Posted to X through Buffer.")
                     st.rerun()
                 else:
-                    st.error(result.get("error") or "Approve failed.")
+                    st.error(result.get("error") or "Approve & post failed.")
     with c2:
         if status not in ("posted", "rejected"):
             if st.button("Reject", key=f"reject_{draft_id}"):
@@ -344,28 +342,10 @@ def _render_draft_card(
                 else:
                     st.error(result.get("error") or "Reject failed.")
     with c3:
-        if can_send_buffer and post_id:
-            if st.button("Send to Buffer/X", key=f"buffer_{draft_id}", type="primary"):
-                with st.spinner("Sending to Buffer…"):
-                    result = backend.send_post_to_buffer(base_url, int(post_id))
-                if result.get("ok"):
-                    st.success("Sent to Buffer queue.")
-                    st.rerun()
-                else:
-                    st.error(result.get("error") or "Send to Buffer failed.")
-        elif can_send_buffer and not post_id:
-            st.caption("Publish record syncing…")
+        st.caption("Approval is required to post.")
     with c4:
-        if x_posting_enabled and status == "approved":
-            if st.button("Post to X (direct)", key=f"post_{draft_id}"):
-                result = backend.post_draft(draft_id, base_url)
-                if result.get("ok"):
-                    st.success("Posted to X.")
-                    st.rerun()
-                else:
-                    st.error(result.get("error") or "Post failed.")
-        elif not x_posting_enabled and status == "approved" and not can_send_buffer:
-            st.caption("X posting disabled")
+        if x_posting_enabled and publish_status == "posted":
+            st.caption("Published to X")
 
 
 def _render_review_queue(
@@ -384,7 +364,7 @@ def _render_review_queue(
     m1.metric("Total", len(drafts))
     m2.metric("Needs review", sum(1 for d in drafts if d.get("status") == "pending"))
     m3.metric("Approved", sum(1 for d in drafts if d.get("status") == "approved"))
-    m4.metric("Sent to Buffer", sum(1 for d in drafts if d.get("publish_status") == "sent_to_buffer"))
+    m4.metric("Posted", sum(1 for d in drafts if d.get("publish_status") == "posted"))
 
     if not filtered:
         st.info("No drafts in this filter.")
@@ -601,18 +581,18 @@ def render_drafts_tab(
 
     with st.expander("Buffer / X posting"):
         st.caption(
-            "Approve a draft, then use **Send to Buffer/X** to queue for @kkanalytica. "
-            "Human approval is required before posting."
+            "Use **Approve & Post Now** to immediately publish to @kkanalytica after human approval."
         )
+        st.caption("Optional admin tool below keeps queue mode available for non-approval workflows.")
         batch_limit = st.number_input("Batch limit", min_value=1, max_value=100, value=25, key="buffer_batch_limit")
-        if st.button("Send all approved to Buffer/X", key="send_approved_batch"):
-            with st.spinner("Sending approved posts…"):
+        if st.button("Queue all approved (optional)", key="send_approved_batch"):
+            with st.spinner("Queueing approved posts…"):
                 result = backend.send_approved_batch(base_url, limit=int(batch_limit))
             if result.get("ok"):
                 st.success(
-                    f"Sent {result.get('sent', 0)} post(s) to Buffer "
+                    f"Queued {result.get('sent', 0)} post(s) in Buffer "
                     f"({result.get('failed', 0)} failed)."
                 )
                 st.rerun()
             else:
-                st.error(result.get("error") or f"Batch send failed ({result.get('failed', 0)} failed).")
+                st.error(result.get("error") or f"Batch queue failed ({result.get('failed', 0)} failed).")

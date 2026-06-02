@@ -39,13 +39,21 @@ def _is_localhost_url(url: str) -> bool:
 
 
 def local_llm_mode_active() -> bool:
-    """True when Ollama should be used (explicit flag or localhost auto-detect)."""
+    """True when Ollama should be used.
+
+    We only auto-enable when Ollama is actually reachable and the configured model is available.
+    This prevents test runs from trying to call a non-running local Ollama daemon.
+    """
     settings = get_settings()
     if settings.local_llm_enabled:
         return True
     if os.environ.get("RENDER"):
         return False
-    return _is_localhost_url(settings.local_llm_base_url)
+    if not _is_localhost_url(settings.local_llm_base_url):
+        return False
+
+    probe = probe_ollama(timeout=2.0)
+    return bool(probe.get("reachable") and probe.get("model_ready"))
 
 
 def probe_ollama(*, timeout: float = 3.0) -> dict[str, Any]:

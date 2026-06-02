@@ -316,13 +316,13 @@ def approve_draft_endpoint(draft_id: int, db: Session = Depends(get_db)) -> dict
     draft, buffer_result = approve_draft(db, draft_id)
     if not draft:
         raise HTTPException(status_code=404, detail="Draft not found")
-    payload = {"message": "Draft approved", "draft": draft_to_dict(draft, incident=draft.incident)}
+    payload = {"message": "Approve-and-post completed", "draft": draft_to_dict(draft, incident=draft.incident)}
     if buffer_result is not None:
         payload["buffer"] = buffer_result
         if buffer_result.get("ok"):
-            payload["message"] = "Draft approved and sent to Buffer/X"
-        elif not buffer_result.get("skipped"):
-            payload["message"] = "Draft approved but Buffer send failed"
+            payload["message"] = "Post approved and published to X through Buffer."
+        else:
+            payload["message"] = "Approve-and-post failed"
     return payload
 
 

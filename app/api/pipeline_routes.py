@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Header, HTTPException
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
@@ -13,10 +14,15 @@ from app.schemas.local_newsroom import E2EPipelineRequest, LocalDraftRequest, Lo
 from app.services.buffer_service import get_buffer_health
 from app.services.e2e_pipeline_service import run_e2e_local_to_buffer
 from app.services.local_llm_service import get_ollama_health, local_llm_service
-from app.services.post_service import approve_post_by_id
+from app.services.post_approval_service import approve_and_post_now
+from app.services.post_service import create_post_from_local_draft
 from app.services.buffer_posting_service import post_to_dict
 
 router = APIRouter(prefix="/api", tags=["health", "pipeline"])
+
+
+class ApproveAndPostTestRequest(BaseModel):
+    live: bool = False
 
 
 def _require_admin_secret(x_admin_secret: str | None) -> None:
@@ -69,12 +75,48 @@ def draft_local(body: LocalDraftRequest, db: Session = Depends(get_db)) -> Local
 
 @router.post("/posts/{post_id}/approve")
 def approve_post(post_id: int, db: Session = Depends(get_db)) -> dict:
-    """Approve a post for Buffer send (does not auto-send)."""
-    try:
-        post = approve_post_by_id(db, post_id)
-    except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-    return {"ok": True, "message": "Post approved", "post": post_to_dict(post)}
+    """Validate, approve, and publish immediately to X through Buffer (shareNow)."""
+    result = approve_and_post_now(db, post_id)
+    if not result.get("ok"):
+        return JSONResponse(status_code=400, content=result)
+    return result
+
+
+@router.post("/test/approve-and-post")
+def test_approve_and_post(
+    body: ApproveAndPostTestRequest | None = None,
+    db: Session = Depends(get_db),
+    x_admin_secret: str | None = Header(default=None, alias="X-Admin-Secret"),
+) -> dict:
+    """Create a safe test post and run approve+post flow (dry-run by default)."""
+    _require_admin_secret(x_admin_secret)
+    live = bool(body.live) if body is not None else False
+
+    test_post = create_post_from_local_draft(
+        db,
+        headline="Karakorum Analytica approval flow test",
+        post_text="Test post from Karakorum Analytica approval-to-X pipeline.",
+        source_name="Karakorum Analytica Internal Test",
+        source_url="https://karakorum-analytica.internal/test",
+        verification_status="verified",
+        source_grade="B",
+        risk_flags=["pipeline_test"],
+        editor_notes=["Admin test endpoint generated this record"],
+        publish_recommendation="needs_review",
+        status="needs_review",
+    )
+    if not live:
+        return {
+            "ok": True,
+            "live": False,
+            "message": "Dry run complete. Test post created and validated path is ready; no live Buffer call made.",
+            "post": post_to_dict(test_post),
+        }
+
+    result = approve_and_post_now(db, test_post.id)
+    if not result.get("ok"):
+        return JSONResponse(status_code=400, content=result)
+    return {"ok": True, "live": True, **result}
 
 
 @router.post("/test/e2e-local-to-buffer")

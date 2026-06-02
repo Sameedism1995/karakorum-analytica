@@ -1,5 +1,3 @@
-from datetime import datetime, timezone
-
 from loguru import logger
 from sqlalchemy.orm import Session, joinedload
 
@@ -7,9 +5,10 @@ from app.models.draft_post import DraftPost
 from app.models.incident import Incident
 from app.processors.post_generator import generate_draft_post
 from app.services.draft_llm_service import generate_post_text_for_incident, incident_to_raw_text
-from app.services.post_service import approve_post_for_draft, sync_post_from_draft
+from app.services.draft_text_clean import sanitize_draft_post_text
 from app.services.buffer_validation_service import grade_from_confidence
-from app.services.post_service import approve_post_for_draft, sync_post_from_draft
+from app.services.post_approval_service import approve_and_post_now
+from app.services.post_service import sync_post_from_draft
 
 
 def generate_drafts_for_incidents(db: Session) -> dict[str, int]:
@@ -77,18 +76,21 @@ def get_draft(db: Session, draft_id: int) -> DraftPost | None:
 
 
 def approve_draft(db: Session, draft_id: int) -> tuple[DraftPost | None, dict | None]:
+    """Approve draft and publish immediately to X via Buffer (shareNow)."""
     draft = get_draft(db, draft_id)
     if not draft:
         return None, None
-    draft.status = "approved"
-    draft.approved_at = datetime.now(timezone.utc)
+    if draft.status not in ("pending",):
+        return draft, {
+            "ok": False,
+            "error": f"Draft cannot be approved from status '{draft.status}' (must be pending review)",
+        }
+    post = sync_post_from_draft(db, draft, incident=draft.incident)
+    post.post_text = sanitize_draft_post_text(draft.post_text or "")[:280]
     db.commit()
-    db.refresh(draft)
-    post = approve_post_for_draft(db, draft)
-    buffer_result = auto_send_approved_post(db, post.id)
-    if buffer_result and buffer_result.get("ok"):
-        draft = get_draft(db, draft_id)
-    return draft, buffer_result
+    result = approve_and_post_now(db, post.id)
+    draft = get_draft(db, draft_id)
+    return draft, result
 
 
 def reject_draft(db: Session, draft_id: int) -> DraftPost | None:
@@ -182,8 +184,11 @@ def draft_to_dict(draft: DraftPost, *, incident: Incident | None = None, post=No
                 "verification_status": post_row.verification_status,
                 "source_grade": post_row.source_grade,
                 "error_message": post_row.error_message,
+                "approved_at": post_row.approved_at.isoformat() if post_row.approved_at else None,
+                "posted_at": post_row.posted_at.isoformat() if post_row.posted_at else None,
                 "sent_to_buffer_at": post_row.sent_to_buffer_at.isoformat() if post_row.sent_to_buffer_at else None,
                 "failed_at": post_row.failed_at.isoformat() if post_row.failed_at else None,
+                "buffer_response": post_row.buffer_response,
             }
         )
     return payload
