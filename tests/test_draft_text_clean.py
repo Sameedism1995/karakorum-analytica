@@ -15,9 +15,14 @@ def test_sanitize_removes_attribution_footer():
     assert "Quetta" in cleaned
 
 
-def test_generate_post_no_attribution_in_short_text():
+def test_generate_post_no_attribution_in_short_text(monkeypatch):
     from app.schemas.llm_dashboard import GeneratePostRequest
     from app.services.llm_newsroom_service import generate_post
+
+    monkeypatch.setattr(
+        "app.services.llm_newsroom_service.LLMClient.is_configured",
+        property(lambda self: False),
+    )
 
     result = generate_post(
         GeneratePostRequest(
