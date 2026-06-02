@@ -1,4 +1,4 @@
-"""Buffer/X publishing via Zapier — human-approved posts only."""
+"""Buffer/X publishing via direct Buffer API — human-approved posts only."""
 
 from __future__ import annotations
 
@@ -8,14 +8,16 @@ from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.database import get_db
-from app.services.post_service import get_post
-from app.services.zapier_buffer_service import (
+from app.services.buffer_posting_service import (
+    post_to_dict,
     send_all_approved_posts,
     send_post_to_buffer,
-    send_test_payload,
+    send_test_post,
 )
+from app.services.buffer_service import buffer_service
+from app.services.post_service import get_post
 
-router = APIRouter(prefix="/api", tags=["posts"])
+router = APIRouter(prefix="/api", tags=["buffer", "posts"])
 
 
 def _require_test_access(x_admin_secret: str | None) -> None:
@@ -32,9 +34,15 @@ def _require_test_access(x_admin_secret: str | None) -> None:
         raise HTTPException(status_code=403, detail="Invalid or missing X-Admin-Secret header")
 
 
+@router.get("/buffer/channels")
+def list_buffer_channels() -> dict:
+    """List Buffer channels and matched @kkanalytica profile (never exposes API key)."""
+    return buffer_service.discover_channels_payload()
+
+
 @router.post("/posts/{post_id}/send-to-buffer")
 def send_to_buffer(post_id: int, db: Session = Depends(get_db)):
-    """Validate and send an approved post to Buffer via Zapier. Never auto-publishes drafts."""
+    """Validate and queue an approved post in Buffer for @kkanalytica."""
     result = send_post_to_buffer(db, post_id)
     if not result.get("ok"):
         return JSONResponse(status_code=400, content=result)
@@ -55,22 +63,20 @@ def send_approved_batch(
     return result
 
 
-@router.post("/test/zapier-buffer")
-def test_zapier_buffer(
+@router.post("/test/buffer")
+def test_buffer(
     x_admin_secret: str | None = Header(default=None, alias="X-Admin-Secret"),
 ) -> dict:
-    """Send a fixed safe test payload to Zapier (dev or admin-secret protected)."""
+    """Queue a safe test post in Buffer (dev or admin-secret protected)."""
     _require_test_access(x_admin_secret)
-    result = send_test_payload()
+    result = send_test_post()
     if not result.get("ok"):
-        raise HTTPException(status_code=503, detail=result.get("error") or "Zapier test failed")
+        raise HTTPException(status_code=503, detail=result.get("error") or "Buffer test failed")
     return result
 
 
 @router.get("/posts/{post_id}")
 def get_post_endpoint(post_id: int, db: Session = Depends(get_db)) -> dict:
-    from app.services.zapier_buffer_service import post_to_dict
-
     post = get_post(db, post_id)
     if not post:
         raise HTTPException(status_code=404, detail="Post not found")

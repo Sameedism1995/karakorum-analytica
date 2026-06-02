@@ -766,6 +766,38 @@ def export_training_jsonl(base_url: str | None) -> dict[str, Any]:
         return {"ok": False, "error": str(exc)}
 
 
+def test_buffer(base_url: str | None, *, admin_secret: str = "") -> dict[str, Any]:
+    headers: dict[str, str] = {}
+    secret = admin_secret or os.environ.get("BUFFER_TEST_SECRET", "").strip()
+    if secret:
+        headers["X-Admin-Secret"] = secret
+    try:
+        response = requests.post(
+            f"{_base_url(base_url)}/api/test/buffer",
+            headers=headers,
+            timeout=60,
+        )
+        response.raise_for_status()
+        return {"ok": True, "data": response.json()}
+    except requests.RequestException as exc:
+        message = str(exc)
+        if isinstance(exc, requests.HTTPError) and exc.response is not None:
+            try:
+                message = exc.response.json().get("detail", message)
+            except ValueError:
+                message = exc.response.text or message
+        return {"ok": False, "error": message}
+
+
+def get_buffer_channels(base_url: str | None = None) -> dict[str, Any]:
+    try:
+        response = requests.get(f"{_base_url(base_url)}/api/buffer/channels", timeout=60)
+        response.raise_for_status()
+        return {"ok": True, "data": response.json()}
+    except requests.RequestException as exc:
+        return {"ok": False, "error": str(exc)}
+
+
 def send_approved_batch(base_url: str | None, *, limit: int = 50) -> dict[str, Any]:
     import os
 
@@ -810,24 +842,3 @@ def send_post_to_buffer(base_url: str | None, post_id: int) -> dict[str, Any]:
     except requests.RequestException as exc:
         return {"ok": False, "error": str(exc)}
 
-
-def test_zapier_buffer(base_url: str | None, *, admin_secret: str = "") -> dict[str, Any]:
-    headers = {}
-    if admin_secret:
-        headers["X-Admin-Secret"] = admin_secret
-    try:
-        response = requests.post(
-            f"{_base_url(base_url)}/api/test/zapier-buffer",
-            headers=headers,
-            timeout=60,
-        )
-        response.raise_for_status()
-        return {"ok": True, "data": response.json()}
-    except requests.RequestException as exc:
-        message = str(exc)
-        if isinstance(exc, requests.HTTPError) and exc.response is not None:
-            try:
-                message = exc.response.json().get("detail", message)
-            except ValueError:
-                message = exc.response.text or message
-        return {"ok": False, "error": message}

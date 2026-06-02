@@ -1,8 +1,7 @@
-"""Pre-send validation for Buffer/X posts via Zapier."""
+"""Pre-send validation for Buffer/X posts."""
 
 from __future__ import annotations
 
-from app.config import get_settings
 from app.models.post import Post
 
 DEFAULT_SOURCE_NAME = "Karakorum Analytica OSINT"
@@ -50,7 +49,7 @@ SENSITIVE_KEYWORDS = (
 
 
 def prepare_post_for_buffer(post: Post) -> Post:
-    """Fill safe defaults so posts can be sent as-is to Buffer/X."""
+    """Ensure source fields exist before validation."""
     if not (post.source_name or "").strip() and not (post.source_url or "").strip():
         post.source_name = DEFAULT_SOURCE_NAME
     if not (post.headline or "").strip():
@@ -75,14 +74,11 @@ def validate_post_for_buffer(post: Post) -> tuple[bool, str]:
     if len(text) > 280:
         return False, f"post_text exceeds 280 characters ({len(text)})"
 
-    if post.graphic_content:
-        return False, "graphic_content posts cannot be sent via text-only Buffer step"
-
-    if not get_settings().buffer_validation_strict:
-        return True, ""
-
     if not (post.source_name or "").strip() and not (post.source_url or "").strip():
         return False, "source_name or source_url must be present"
+
+    if post.graphic_content:
+        return False, "graphic_content posts cannot be sent via text-only Buffer posting"
 
     verification = (post.verification_status or "").strip().lower()
     if verification == "unverified":
@@ -122,9 +118,9 @@ def _contains_sensitive_topic(text: str) -> bool:
 
 
 def _has_attribution_or_caution(text: str) -> bool:
-    lower = text.lower()
     if _contains_any(text, CAUTIOUS_PHRASES):
         return True
+    lower = text.lower()
     return any(m in lower for m in ATTRIBUTION_MARKERS)
 
 

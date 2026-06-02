@@ -328,7 +328,7 @@ def _render_draft_card(
     with c3:
         if can_send_buffer and post_id:
             if st.button("Send to Buffer/X", key=f"buffer_{draft_id}", type="primary"):
-                with st.spinner("Sending to Buffer via Zapier…"):
+                with st.spinner("Sending to Buffer…"):
                     result = backend.send_post_to_buffer(base_url, int(post_id))
                 if result.get("ok"):
                     st.success("Sent to Buffer queue.")
@@ -582,7 +582,7 @@ def render_drafts_tab(
 
     with st.expander("Buffer / X posting"):
         st.caption(
-            "Relaxed mode: posts go to Buffer as-is when approved (auto-send enabled on API). "
+            "Posts are sent directly to Buffer for @kkanalytica when approved (auto-send on API). "
             "Use bulk send for already-approved posts."
         )
         batch_limit = st.number_input("Batch limit", min_value=1, max_value=100, value=25, key="buffer_batch_limit")

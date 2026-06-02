@@ -106,10 +106,11 @@ class Settings(BaseSettings):
     local_llm_base_url: str = "http://localhost:11434"
     local_llm_model: str = "qwen3:4b"
 
-    # Buffer/X via Zapier (webhook URL must stay in env — never commit)
-    zapier_buffer_webhook_url: str = ""
+    # Buffer/X via direct Buffer GraphQL API (never commit BUFFER_API_KEY)
+    buffer_api_key: str = ""
+    buffer_channel_handle: str = "@kkanalytica"
+    buffer_channel_id: str = ""
     buffer_test_secret: str = ""
-    buffer_validation_strict: bool = False
     buffer_auto_send_on_approve: bool = False
 
     @property

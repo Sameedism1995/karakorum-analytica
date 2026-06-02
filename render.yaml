@@ -64,12 +64,14 @@ services:
         sync: false
       - key: ACLED_API_KEY
         sync: false
-      - key: ZAPIER_BUFFER_WEBHOOK_URL
+      - key: BUFFER_API_KEY
+        sync: false
+      - key: BUFFER_CHANNEL_HANDLE
+        value: "@kkanalytica"
+      - key: BUFFER_CHANNEL_ID
         sync: false
       - key: BUFFER_TEST_SECRET
         sync: false
-      - key: BUFFER_VALIDATION_STRICT
-        value: "false"
       - key: BUFFER_AUTO_SEND_ON_APPROVE
         value: "true"
       - key: SCWEET_ENABLED

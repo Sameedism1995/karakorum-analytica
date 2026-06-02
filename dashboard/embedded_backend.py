@@ -717,7 +717,7 @@ def export_training_jsonl(base_url: str) -> dict[str, Any]:
 
 def send_approved_batch(base_url: str, *, limit: int = 50) -> dict[str, Any]:
     from app.database import SessionLocal
-    from app.services.zapier_buffer_service import send_all_approved_posts
+    from app.services.buffer_posting_service import send_all_approved_posts
 
     try:
         db = SessionLocal()
@@ -731,7 +731,7 @@ def send_approved_batch(base_url: str, *, limit: int = 50) -> dict[str, Any]:
 
 def send_post_to_buffer(base_url: str, post_id: int) -> dict[str, Any]:
     from app.database import SessionLocal
-    from app.services.zapier_buffer_service import send_post_to_buffer as _send
+    from app.services.buffer_posting_service import send_post_to_buffer as _send
 
     try:
         db = SessionLocal()
@@ -743,7 +743,13 @@ def send_post_to_buffer(base_url: str, post_id: int) -> dict[str, Any]:
         db.close()
 
 
-def test_zapier_buffer(base_url: str, *, admin_secret: str = "") -> dict[str, Any]:
-    from app.services.zapier_buffer_service import send_test_payload
+def test_buffer(base_url: str = "", *, admin_secret: str = "") -> dict[str, Any]:
+    from app.services.buffer_posting_service import send_test_post
 
-    return send_test_payload()
+    return send_test_post()
+
+
+def get_buffer_channels(base_url: str = "") -> dict[str, Any]:
+    from app.services.buffer_service import buffer_service
+
+    return buffer_service.discover_channels_payload()

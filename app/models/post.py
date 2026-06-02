@@ -9,7 +9,7 @@ from app.models.base import Base, TimestampMixin
 
 
 class Post(Base, TimestampMixin):
-    """Editorial post queue for Buffer/X publishing via Zapier."""
+    """Editorial post queue for Buffer/X publishing via Buffer API."""
 
     __tablename__ = "posts"
 
@@ -28,7 +28,7 @@ class Post(Base, TimestampMixin):
     scheduled_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     graphic_content: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
-    zapier_response: Mapped[dict | list | str | None] = mapped_column(JSON, nullable=True)
+    buffer_response: Mapped[dict | list | str | None] = mapped_column(JSON, nullable=True)
     sent_to_buffer_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     failed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
