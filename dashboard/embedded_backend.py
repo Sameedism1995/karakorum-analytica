@@ -710,3 +710,23 @@ def export_training_jsonl(base_url: str) -> dict[str, Any]:
         return {"ok": False, "error": str(exc)}
     finally:
         db.close()
+
+
+def send_post_to_buffer(base_url: str, post_id: int) -> dict[str, Any]:
+    from app.database import SessionLocal
+    from app.services.zapier_buffer_service import send_post_to_buffer as _send
+
+    try:
+        db = SessionLocal()
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)}
+    try:
+        return _send(db, post_id)
+    finally:
+        db.close()
+
+
+def test_zapier_buffer(base_url: str, *, admin_secret: str = "") -> dict[str, Any]:
+    from app.services.zapier_buffer_service import send_test_payload
+
+    return send_test_payload()

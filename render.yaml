@@ -64,6 +64,10 @@ services:
         sync: false
       - key: ACLED_API_KEY
         sync: false
+      - key: ZAPIER_BUFFER_WEBHOOK_URL
+        sync: false
+      - key: BUFFER_TEST_SECRET
+        sync: false
       - key: SCWEET_ENABLED
         sync: false
       - key: SCWEET_USERNAME

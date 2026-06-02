@@ -21,3 +21,4 @@ class DraftPost(Base, TimestampMixin):
 
     incident = relationship("Incident", back_populates="draft_posts")
     posted_items = relationship("PostedItem", back_populates="draft_post")
+    post = relationship("Post", back_populates="draft_post", uselist=False)

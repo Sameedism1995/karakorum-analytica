@@ -764,3 +764,45 @@ def export_training_jsonl(base_url: str | None) -> dict[str, Any]:
         return {"ok": True, "content": response.text}
     except requests.RequestException as exc:
         return {"ok": False, "error": str(exc)}
+
+
+def send_post_to_buffer(base_url: str | None, post_id: int) -> dict[str, Any]:
+    try:
+        response = requests.post(
+            f"{_base_url(base_url)}/api/posts/{post_id}/send-to-buffer",
+            timeout=60,
+        )
+        try:
+            body = response.json()
+        except ValueError:
+            body = {"error": response.text}
+        if response.ok:
+            return {"ok": True, **body} if isinstance(body, dict) else {"ok": True, "data": body}
+        message = body.get("error") if isinstance(body, dict) else str(body)
+        if isinstance(body, dict) and not message:
+            message = body.get("detail") or str(body)
+        return {"ok": False, "error": message, **(body if isinstance(body, dict) else {})}
+    except requests.RequestException as exc:
+        return {"ok": False, "error": str(exc)}
+
+
+def test_zapier_buffer(base_url: str | None, *, admin_secret: str = "") -> dict[str, Any]:
+    headers = {}
+    if admin_secret:
+        headers["X-Admin-Secret"] = admin_secret
+    try:
+        response = requests.post(
+            f"{_base_url(base_url)}/api/test/zapier-buffer",
+            headers=headers,
+            timeout=60,
+        )
+        response.raise_for_status()
+        return {"ok": True, "data": response.json()}
+    except requests.RequestException as exc:
+        message = str(exc)
+        if isinstance(exc, requests.HTTPError) and exc.response is not None:
+            try:
+                message = exc.response.json().get("detail", message)
+            except ValueError:
+                message = exc.response.text or message
+        return {"ok": False, "error": message}

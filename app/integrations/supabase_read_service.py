@@ -152,7 +152,28 @@ def fetch_drafts_rest(*, limit: int = 100) -> dict[str, Any] | None:
             .limit(limit)
             .execute()
         )
-        items = [_draft_row_to_dict(row) for row in (response.data or [])]
+        posts_by_draft: dict[int, dict[str, Any]] = {}
+        try:
+            posts_resp = (
+                client.table("posts")
+                .select(
+                    "id,draft_post_id,status,headline,source_url,source_name,"
+                    "verification_status,source_grade,error_message,sent_to_buffer_at,failed_at"
+                )
+                .limit(limit)
+                .execute()
+            )
+            for prow in posts_resp.data or []:
+                did = prow.get("draft_post_id")
+                if did is not None:
+                    posts_by_draft[int(did)] = prow
+        except Exception as post_exc:
+            logger.warning(f"Supabase REST posts merge skipped: {post_exc}")
+
+        items = [
+            _draft_row_to_dict(row, posts_by_draft.get(int(row["id"])))
+            for row in (response.data or [])
+        ]
         return {"count": len(items), "items": items, "_via": "supabase_rest"}
     except Exception as exc:
         logger.warning(f"Supabase REST drafts failed: {exc}")
@@ -316,8 +337,8 @@ def remove_watch_account_rest(raw_handle: str) -> dict[str, Any] | None:
         return {"ok": False, "error": str(exc)}
 
 
-def _draft_row_to_dict(row: dict[str, Any]) -> dict[str, Any]:
-    return {
+def _draft_row_to_dict(row: dict[str, Any], post_row: dict[str, Any] | None = None) -> dict[str, Any]:
+    payload = {
         "id": row["id"],
         "incident_id": row.get("incident_id"),
         "post_text": row.get("post_text"),
@@ -329,3 +350,19 @@ def _draft_row_to_dict(row: dict[str, Any]) -> dict[str, Any]:
         "posted_at": _iso(row.get("posted_at")),
         "x_post_id": row.get("x_post_id"),
     }
+    if post_row:
+        payload.update(
+            {
+                "post_id": post_row.get("id"),
+                "publish_status": post_row.get("status"),
+                "headline": post_row.get("headline"),
+                "source_url": post_row.get("source_url"),
+                "source_name": post_row.get("source_name"),
+                "verification_status": post_row.get("verification_status"),
+                "source_grade": post_row.get("source_grade"),
+                "error_message": post_row.get("error_message"),
+                "sent_to_buffer_at": _iso(post_row.get("sent_to_buffer_at")),
+                "failed_at": _iso(post_row.get("failed_at")),
+            }
+        )
+    return payload

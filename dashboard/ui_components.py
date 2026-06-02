@@ -26,9 +26,12 @@ STATUS_BADGE_CLASS = {
     "needs_review": "badge-orange",
     "ready_for_review": "badge-green",
     "pending": "badge-blue",
+    "drafted": "badge-blue",
     "approved": "badge-green",
     "rejected": "badge-red",
     "posted": "badge-purple",
+    "sent_to_buffer": "badge-purple",
+    "failed": "badge-red",
     "collected": "badge-blue",
 }
 
@@ -37,9 +40,12 @@ STATUS_LABEL = {
     "needs_review": "Needs review",
     "ready_for_review": "Ready for review",
     "pending": "Pending",
+    "drafted": "Drafted",
     "approved": "Approved",
     "rejected": "Rejected",
     "posted": "Posted",
+    "sent_to_buffer": "Sent to Buffer",
+    "failed": "Failed",
     "collected": "Collected",
 }
 
