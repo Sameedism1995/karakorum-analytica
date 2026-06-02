@@ -56,8 +56,43 @@ Return JSON with exactly these keys:
   "verification_status": "unverified|partially_verified|officially_confirmed|insufficient_source",
   "source_grade": "A|B|C|D|E",
   "risk_flags": ["list of specific editorial risks"],
-  "publish_recommendation": "safe_to_publish|publish_with_caution|needs_verification|do_not_publish",
+  "publish_recommendation": "safe_to_publish|publish_with_caution|needs_verification|needs_review|do_not_publish",
   "editor_notes": ["list of notes for human editor"]
+}}
+"""
+
+LOCAL_DRAFT_USER_TEMPLATE = """Draft a neutral OSINT newsroom post from this material.
+
+RAW TEXT:
+{raw_text}
+
+SOURCE NAME: {source_name}
+SOURCE URL: {source_url}
+LOCATION: {location}
+CATEGORY: {category}
+VERIFICATION STATUS (input hint): {verification_status}
+SOURCE GRADE (input hint): {source_grade}
+
+Rules:
+- Neutral OSINT/newsroom tone only
+- No sensational wording
+- No confirmed wording unless an official source in the text says so
+- For unverified claims use cautious phrases: "Local sources claim", "Initial reports suggest", "Official confirmation is pending", "The claim could not be independently verified"
+- Do not repeat propaganda slogans
+- Do not add tactical details
+- Do not invent casualty numbers
+- post_text must be under 280 characters
+- Return JSON only — no thinking, no markdown, no explanation
+
+Return JSON with exactly these keys:
+{{
+  "headline": "max 70 characters",
+  "post_text": "max 280 characters",
+  "verification_status": "unverified|partially_verified|officially_confirmed|insufficient_source",
+  "source_grade": "A|B|C|D|E",
+  "risk_flags": [],
+  "editor_notes": "short note for human editor or list of notes",
+  "publish_recommendation": "needs_review"
 }}
 """
 

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 from loguru import logger
 from sqlalchemy.orm import Session
 
@@ -92,8 +94,64 @@ def backfill_posts_from_drafts(db: Session) -> int:
 def approve_post_for_draft(db: Session, draft: DraftPost) -> Post:
     post = sync_post_from_draft(db, draft)
     post.status = "approved"
+    post.approved_at = datetime.now(timezone.utc)
     post.error_message = None
     post.failed_at = None
     db.commit()
     db.refresh(post)
+    return post
+
+
+def create_post_from_local_draft(
+    db: Session,
+    *,
+    headline: str,
+    post_text: str,
+    source_name: str,
+    source_url: str | None = None,
+    verification_status: str = "unverified",
+    source_grade: str = "C",
+    risk_flags: list[str] | None = None,
+    editor_notes: list[str] | str | None = None,
+    publish_recommendation: str = "needs_review",
+    status: str = "needs_review",
+) -> Post:
+    """Insert a new editorial post from local LLM draft."""
+    notes = editor_notes
+    if isinstance(notes, str):
+        notes = [notes] if notes.strip() else []
+    post = Post(
+        headline=headline[:512],
+        post_text=(post_text or "")[:280],
+        source_name=(source_name or "")[:512] or "Karakorum Analytica OSINT",
+        source_url=(source_url or "")[:2048] if source_url else None,
+        verification_status=verification_status,
+        source_grade=(source_grade or "C")[:1].upper(),
+        risk_flags=risk_flags or [],
+        editor_notes=notes or [],
+        publish_recommendation=publish_recommendation,
+        status=status,
+        graphic_content=False,
+    )
+    db.add(post)
+    db.commit()
+    db.refresh(post)
+    logger.info(f"Created post id={post.id} status={post.status} from local LLM draft")
+    return post
+
+
+def approve_post_by_id(db: Session, post_id: int) -> Post:
+    """Approve a post for Buffer send (does not auto-send to Buffer)."""
+    post = get_post(db, post_id)
+    if not post:
+        raise ValueError("Post not found")
+    if post.status == "sent_to_buffer":
+        raise ValueError("Post already sent to Buffer")
+    post.status = "approved"
+    post.approved_at = datetime.now(timezone.utc)
+    post.error_message = None
+    post.failed_at = None
+    db.commit()
+    db.refresh(post)
+    logger.info(f"Approved post id={post.id} approved_at={post.approved_at.isoformat()}")
     return post

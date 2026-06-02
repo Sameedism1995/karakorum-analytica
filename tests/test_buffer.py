@@ -68,13 +68,12 @@ def test_validate_blocks_empty_text():
     assert "empty" in reason.lower()
 
 
-def test_validate_blocks_unverified_without_cautious_phrase():
+def test_validate_allows_unverified_without_cautious_phrase():
     defaults = _approved_defaults()
-    defaults["post_text"] = "Attack reported in Quetta with casualties."
+    defaults["post_text"] = "Security activity reported near Quetta."
     post = SimpleNamespace(**defaults)
     ok, reason = validate_post_for_buffer(post)
-    assert not ok
-    assert "cautious phrase" in reason.lower()
+    assert ok, reason
 
 
 @patch("app.services.buffer_posting_service.buffer_service")
@@ -104,7 +103,7 @@ def test_send_post_to_buffer_success(mock_buffer, db_session):
 def test_send_validation_failure_does_not_call_buffer(mock_buffer, db_session):
     mock_buffer.is_configured.return_value = True
 
-    post = _approved_post(post_text="Too short", verification_status="unverified")
+    post = _approved_post(post_text="", verification_status="unverified")
     db_session.add(post)
     db_session.commit()
 

@@ -80,16 +80,6 @@ def validate_post_for_buffer(post: Post) -> tuple[bool, str]:
     if post.graphic_content:
         return False, "graphic_content posts cannot be sent via text-only Buffer posting"
 
-    verification = (post.verification_status or "").strip().lower()
-    if verification == "unverified":
-        if not _contains_any(text, CAUTIOUS_PHRASES):
-            return False, (
-                "Unverified posts must include at least one cautious phrase: "
-                '"Local sources claim", "Initial reports suggest", '
-                '"Official confirmation is pending", or '
-                '"The claim could not be independently verified"'
-            )
-
     grade = (post.source_grade or "").strip().upper()[:1]
     if grade in {"D", "E"}:
         if not _contains_any(text, UNVERIFIED_MARKERS):

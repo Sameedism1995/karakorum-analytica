@@ -135,3 +135,33 @@ class BufferService:
 
 
 buffer_service = BufferService()
+
+
+def get_buffer_health() -> dict[str, Any]:
+    """Standard health payload for GET /api/health/buffer — never exposes API key."""
+    settings = get_settings()
+    configured = buffer_service.is_configured()
+    if not configured:
+        return {
+            "api_key_configured": False,
+            "channel_handle": settings.buffer_channel_handle or "@kkanalytica",
+            "channel_found": False,
+            "channel_id": None,
+            "error": "BUFFER_API_KEY is not configured",
+        }
+
+    channel_id, resolution = buffer_service.resolve_channel_id()
+    channel_found = bool(channel_id)
+    error = None if channel_found else resolution.get("error") or "Buffer channel not found"
+    if channel_found:
+        logger.info(f"Buffer health ok channel_id={channel_id[:8]}… handle={settings.buffer_channel_handle}")
+    else:
+        logger.warning(f"Buffer health channel not found: {error}")
+
+    return {
+        "api_key_configured": True,
+        "channel_handle": settings.buffer_channel_handle or "@kkanalytica",
+        "channel_found": channel_found,
+        "channel_id": channel_id,
+        "error": error,
+    }

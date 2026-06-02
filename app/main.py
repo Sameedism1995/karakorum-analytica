@@ -14,6 +14,7 @@ bootstrap_env()
 
 from app.api.dashboard_routes import router as dashboard_router
 from app.api.llm_routes import router as llm_router
+from app.api.pipeline_routes import router as pipeline_router
 from app.api.posts_routes import router as posts_router
 from app.api.routes import router
 from app.bootstrap import bootstrap_database
@@ -39,6 +40,7 @@ app.include_router(router)
 app.include_router(dashboard_router)
 app.include_router(llm_router)
 app.include_router(posts_router)
+app.include_router(pipeline_router)
 
 
 def _mount_llm_dashboard() -> None:

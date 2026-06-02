@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.integrations.llm_client import LLMClient
-from app.integrations.ollama_client import OllamaError
+from app.integrations.ollama_client import OllamaError, local_llm_mode_active
 from app.models.incident import Incident
 from app.processors.post_generator import generate_draft_post
 from app.schemas.llm_dashboard import AuditPostRequest, GeneratePostRequest
@@ -21,13 +21,14 @@ def get_llm_health() -> dict:
     client = LLMClient()
     local = get_local_llm_health()
 
-    if settings.local_llm_enabled:
+    if local_llm_mode_active():
         mode = "local_ollama" if local.get("reachable") and local.get("model_ready") else "local_ollama_unavailable"
         return {
             "provider": "ollama",
             "model": settings.local_llm_model,
             "openai_configured": bool(settings.openai_api_key.strip()) and settings.llm_provider == "openai",
             "local_llm_enabled": True,
+            "local_llm_auto_detect": local.get("auto_detect", False),
             "local_llm": local,
             "mode": mode,
         }
@@ -37,6 +38,7 @@ def get_llm_health() -> dict:
         "model": settings.llm_model,
         "openai_configured": client.is_configured,
         "local_llm_enabled": False,
+        "local_llm_auto_detect": False,
         "local_llm": local,
         "mode": "openai" if client.is_configured else "template",
     }
@@ -76,7 +78,7 @@ def generate_post_text_for_incident(
     source_count = len([s for s in (incident.matched_sources or "").split(", ") if s])
     location = ", ".join(p for p in [incident.city, incident.province] if p)
 
-    if settings.local_llm_enabled and db is not None:
+    if local_llm_mode_active() and db is not None:
         try:
             draft = local_llm_service.draft_newsroom_post(
                 db,
@@ -154,7 +156,7 @@ def audit_draft_text(
     incident_type: str = "",
 ) -> dict:
     settings = get_settings()
-    if settings.local_llm_enabled:
+    if local_llm_mode_active():
         audit = local_llm_service.audit_source(
             NewsroomAuditRequest(
                 raw_text=raw_report,

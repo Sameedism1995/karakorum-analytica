@@ -112,6 +112,7 @@ class Settings(BaseSettings):
     buffer_channel_id: str = ""
     buffer_test_secret: str = ""
     buffer_auto_send_on_approve: bool = False
+    admin_test_secret: str = ""
 
     @property
     def render_scweet_service_names_list(self) -> list[str]:
@@ -177,6 +178,10 @@ class Settings(BaseSettings):
     @property
     def is_production(self) -> bool:
         return self.runtime_environment.lower() in {"production", "prod"}
+
+    @property
+    def effective_admin_test_secret(self) -> str:
+        return (self.admin_test_secret or self.buffer_test_secret or "").strip()
 
     @property
     def cors_origins(self) -> list[str]:

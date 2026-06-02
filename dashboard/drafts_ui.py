@@ -71,10 +71,18 @@ def _render_local_audit(audit: dict[str, Any]) -> None:
         st.code(str(rewrite)[:280])
 
 
-def _render_llm_status(backend: ModuleType, base_url: str) -> dict[str, Any]:
+def _render_llm_status(backend: ModuleType, base_url: str, *, on_render: bool = False) -> dict[str, Any]:
     resp = backend.get_llm_health(base_url)
     llm = (resp.get("data") or {}).get("llm") or resp.get("llm") or {}
     local = llm.get("local_llm") or {}
+
+    if on_render:
+        st.warning(
+            "**Hosted dashboard (Render)** cannot reach Ollama on your Mac. "
+            "To use local Ollama with production data, run on your Mac: "
+            "`streamlit run dashboard/streamlit_app.py`"
+        )
+
     c1, c2, c3, c4 = st.columns(4)
     with c1:
         st.markdown("**LLM provider**")
@@ -87,14 +95,18 @@ def _render_llm_status(backend: ModuleType, base_url: str) -> dict[str, Any]:
         st.markdown(_llm_mode_badge(llm.get("mode", "template")), unsafe_allow_html=True)
     with c4:
         st.markdown("**Local Ollama**")
-        if llm.get("local_llm_enabled"):
+        if on_render:
+            st.caption("N/A on Render host")
+        elif llm.get("local_llm_enabled"):
             if local.get("reachable") and local.get("model_ready"):
                 st.caption(f"Ready · {local.get('model', '')}")
             else:
                 st.caption(local.get("error") or "Not reachable")
         else:
             st.caption("Disabled")
-    if llm.get("local_llm_enabled"):
+    if on_render:
+        pass
+    elif llm.get("local_llm_enabled"):
         if local.get("reachable") and local.get("model_ready"):
             st.success(
                 "Local Ollama is active — drafts use on-device inference. "
@@ -107,8 +119,9 @@ def _render_llm_status(backend: ModuleType, base_url: str) -> dict[str, Any]:
             )
     elif not llm.get("openai_configured"):
         st.info(
-            "Using **template newsroom** (no OpenAI key). Set `LOCAL_LLM_ENABLED=true` for Ollama, "
-            "or `LLM_PROVIDER=openai` + `OPENAI_API_KEY` for cloud inference."
+            "Using **template newsroom** (no OpenAI key). Run `ollama serve` and "
+            f"`ollama pull {local.get('model', 'qwen3:4b')}` on this machine for local drafts, "
+            "or set `LLM_PROVIDER=openai` + `OPENAI_API_KEY` for cloud inference."
         )
     else:
         st.success("OpenAI is configured — regenerate and studio use live LLM inference.")
@@ -533,6 +546,7 @@ def render_drafts_tab(
     draft_items: list[dict[str, Any]],
     incident_items: list[dict[str, Any]],
     x_posting_enabled: bool,
+    on_render: bool = False,
 ) -> None:
     st.markdown('<div class="section-title">LLM Newsroom & drafts</div>', unsafe_allow_html=True)
     st.caption(
@@ -544,7 +558,7 @@ def render_drafts_tab(
         st.warning("Backend unavailable — drafts cannot be loaded.")
         return
 
-    _render_llm_status(backend, base_url)
+    _render_llm_status(backend, base_url, on_render=on_render)
 
     tab_queue, tab_studio = st.tabs(["Review queue", "LLM studio"])
 
@@ -582,8 +596,8 @@ def render_drafts_tab(
 
     with st.expander("Buffer / X posting"):
         st.caption(
-            "Posts are sent directly to Buffer for @kkanalytica when approved (auto-send on API). "
-            "Use bulk send for already-approved posts."
+            "Approve a draft, then use **Send to Buffer/X** to queue for @kkanalytica. "
+            "Human approval is required before posting."
         )
         batch_limit = st.number_input("Batch limit", min_value=1, max_value=100, value=25, key="buffer_batch_limit")
         if st.button("Send all approved to Buffer/X", key="send_approved_batch"):

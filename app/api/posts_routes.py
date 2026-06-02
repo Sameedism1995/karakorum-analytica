@@ -24,11 +24,11 @@ def _require_test_access(x_admin_secret: str | None) -> None:
     settings = get_settings()
     if not settings.is_production:
         return
-    secret = settings.buffer_test_secret.strip()
+    secret = settings.effective_admin_test_secret
     if not secret:
         raise HTTPException(
             status_code=403,
-            detail="Test endpoint disabled in production without BUFFER_TEST_SECRET",
+            detail="Test endpoint disabled in production without ADMIN_TEST_SECRET or BUFFER_TEST_SECRET",
         )
     if (x_admin_secret or "").strip() != secret:
         raise HTTPException(status_code=403, detail="Invalid or missing X-Admin-Secret header")

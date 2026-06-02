@@ -54,3 +54,14 @@ def bootstrap_env(root: Path | None = None) -> None:
 
     if not os.environ.get("SCWEET_DB_PATH"):
         os.environ["SCWEET_DB_PATH"] = "data/scweet_state.db"
+
+    # Local Ollama: default on for developer machines (not Render/production servers)
+    if not os.environ.get("LOCAL_LLM_ENABLED"):
+        if not is_render and not is_prod:
+            os.environ["LOCAL_LLM_ENABLED"] = "true"
+
+    if not os.environ.get("LOCAL_LLM_BASE_URL"):
+        os.environ["LOCAL_LLM_BASE_URL"] = "http://localhost:11434"
+
+    if not os.environ.get("LOCAL_LLM_MODEL"):
+        os.environ["LOCAL_LLM_MODEL"] = "qwen3:4b"

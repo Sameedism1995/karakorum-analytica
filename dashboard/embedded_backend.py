@@ -753,3 +753,84 @@ def get_buffer_channels(base_url: str = "") -> dict[str, Any]:
     from app.services.buffer_service import buffer_service
 
     return buffer_service.discover_channels_payload()
+
+
+def get_ollama_health(base_url: str = "") -> dict[str, Any]:
+    from app.services.local_llm_service import get_ollama_health as _health
+
+    return {"ok": True, "data": _health()}
+
+
+def get_buffer_health(base_url: str = "") -> dict[str, Any]:
+    from app.services.buffer_service import get_buffer_health as _health
+
+    return {"ok": True, "data": _health()}
+
+
+def get_supabase_health(base_url: str = "") -> dict[str, Any]:
+    from app.database import check_database_connection
+    from app.config import get_settings
+
+    db = check_database_connection()
+    settings = get_settings()
+    return {
+        "ok": True,
+        "data": {
+            "connected": db.get("ok", False),
+            "backend": db.get("backend"),
+            "using_supabase": db.get("using_supabase", False),
+            "supabase_url_configured": bool(settings.supabase_url.strip()),
+            "error": db.get("error"),
+        },
+    }
+
+
+def draft_local_post(base_url: str, payload: dict[str, Any]) -> dict[str, Any]:
+    from app.database import SessionLocal
+    from app.schemas.local_newsroom import LocalDraftRequest
+    from app.services.local_llm_service import local_llm_service
+
+    try:
+        db = SessionLocal()
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)}
+    try:
+        body = LocalDraftRequest(**payload)
+        result = local_llm_service.draft_local(db, body)
+        return {"ok": True, "data": result.model_dump()}
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)}
+    finally:
+        db.close()
+
+
+def approve_post(base_url: str, post_id: int) -> dict[str, Any]:
+    from app.database import SessionLocal
+    from app.services.post_service import approve_post_by_id
+    from app.services.buffer_posting_service import post_to_dict
+
+    try:
+        db = SessionLocal()
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)}
+    try:
+        post = approve_post_by_id(db, post_id)
+        return {"ok": True, "post": post_to_dict(post)}
+    except ValueError as exc:
+        return {"ok": False, "error": str(exc)}
+    finally:
+        db.close()
+
+
+def run_e2e_pipeline(base_url: str = "", *, dry_run: bool = True, admin_secret: str = "") -> dict[str, Any]:
+    from app.database import SessionLocal
+    from app.services.e2e_pipeline_service import run_e2e_local_to_buffer
+
+    try:
+        db = SessionLocal()
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)}
+    try:
+        return run_e2e_local_to_buffer(db, dry_run=dry_run)
+    finally:
+        db.close()

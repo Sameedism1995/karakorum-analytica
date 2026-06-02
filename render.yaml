@@ -72,8 +72,16 @@ services:
         sync: false
       - key: BUFFER_TEST_SECRET
         sync: false
+      - key: ADMIN_TEST_SECRET
+        sync: false
+      - key: LOCAL_LLM_ENABLED
+        value: "false"
+      - key: LOCAL_LLM_BASE_URL
+        value: "http://localhost:11434"
+      - key: LOCAL_LLM_MODEL
+        value: "qwen3:4b"
       - key: BUFFER_AUTO_SEND_ON_APPROVE
-        value: "true"
+        value: "false"
       - key: SCWEET_ENABLED
         sync: false
       - key: SCWEET_USERNAME

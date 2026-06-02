@@ -177,6 +177,8 @@ def test_fetch_style_examples_returns_list(db_session):
 
 def test_local_disabled_raises(monkeypatch):
     monkeypatch.setenv("LOCAL_LLM_ENABLED", "false")
+    monkeypatch.setenv("LOCAL_LLM_BASE_URL", "http://remote-ollama:11434")
+    monkeypatch.setenv("RENDER", "true")
     get_settings.cache_clear()
     with pytest.raises(OllamaError):
         local_llm_service.audit_source(NewsroomAuditRequest(post_text="test"))

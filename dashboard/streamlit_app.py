@@ -21,6 +21,7 @@ bootstrap_env(ROOT)
 
 from dashboard import api_client, embedded_backend
 from dashboard.branding import BRAND_NAME, LOGO_PATH, render_sidebar_logo
+from dashboard.diagnostics_ui import render_pipeline_diagnostics
 from dashboard.drafts_ui import render_drafts_tab
 from dashboard.incidents_ui import render_incidents_tab
 from dashboard.ingestion_ui import render_ingestion_tab
@@ -224,6 +225,7 @@ def main() -> None:
             draft_items=draft_items,
             incident_items=incident_items,
             x_posting_enabled=x_posting_enabled,
+            on_render=_on_render(),
         )
 
     with tab_ingestion:
@@ -258,6 +260,8 @@ def main() -> None:
             raw_df=raw_df,
             last_refresh=last_refresh,
         )
+        if health.get("ok"):
+            render_pipeline_diagnostics(backend, base_url, health=health)
 
 
 if __name__ == "__main__":

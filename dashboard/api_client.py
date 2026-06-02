@@ -11,6 +11,18 @@ DEFAULT_BASE_URL = "http://127.0.0.1:8000"
 REQUEST_TIMEOUT = 30
 
 
+def _use_embedded_for_local_llm() -> bool:
+    """Route LLM calls to in-process Ollama when the remote API cannot reach localhost."""
+    if os.environ.get("RENDER"):
+        return False
+    try:
+        from app.integrations.ollama_client import local_llm_mode_active
+
+        return local_llm_mode_active()
+    except Exception:
+        return False
+
+
 def resolve_base_url(override: str | None = None) -> str:
     """Resolve API base URL from override, env, or local default."""
     if override and override.strip():
@@ -603,12 +615,47 @@ def list_spiderfoot_modules(base_url: str | None = None) -> dict[str, Any]:
 
 
 def get_llm_health(base_url: str | None = None) -> dict[str, Any]:
+    if _use_embedded_for_local_llm():
+        from dashboard import embedded_backend
+
+        return embedded_backend.get_llm_health("")
     try:
         response = requests.get(f"{_base_url(base_url)}/health/llm", timeout=REQUEST_TIMEOUT)
         response.raise_for_status()
-        return {"ok": True, "data": response.json()}
+        payload = response.json()
     except requests.RequestException as exc:
         return {"ok": False, "error": str(exc)}
+
+    # When dashboard runs on your Mac (not Render), merge local Ollama probe into API health.
+    if not os.environ.get("RENDER"):
+        try:
+            from app.integrations.ollama_client import local_llm_mode_active, probe_ollama
+            from app.config import get_settings
+
+            if local_llm_mode_active():
+                probe = probe_ollama(timeout=3.0)
+                settings = get_settings()
+                llm = payload.get("llm") or {}
+                llm["local_llm_enabled"] = True
+                llm["local_llm"] = {
+                    "enabled": True,
+                    "reachable": probe.get("reachable", False),
+                    "model_ready": probe.get("model_ready", False),
+                    "model": settings.local_llm_model,
+                    "base_url": settings.local_llm_base_url,
+                    "error": probe.get("error"),
+                }
+                if probe.get("reachable") and probe.get("model_ready"):
+                    llm["provider"] = "ollama"
+                    llm["model"] = settings.local_llm_model
+                    llm["mode"] = "local_ollama"
+                else:
+                    llm["mode"] = "local_ollama_unavailable"
+                payload["llm"] = llm
+        except Exception:
+            pass
+
+    return {"ok": True, "data": payload}
 
 
 def update_draft(base_url: str | None, draft_id: int, post_text: str) -> dict[str, Any]:
@@ -703,6 +750,10 @@ def llm_audit_post(
 
 
 def draft_newsroom_post_local(base_url: str | None, payload: dict[str, Any]) -> dict[str, Any]:
+    if _use_embedded_for_local_llm():
+        from dashboard import embedded_backend
+
+        return embedded_backend.draft_newsroom_post_local("", payload)
     try:
         response = requests.post(
             f"{_base_url(base_url)}/llm/draft-newsroom-post",
@@ -723,6 +774,10 @@ def draft_newsroom_post_local(base_url: str | None, payload: dict[str, Any]) -> 
 
 
 def audit_source_local(base_url: str | None, payload: dict[str, Any]) -> dict[str, Any]:
+    if _use_embedded_for_local_llm():
+        from dashboard import embedded_backend
+
+        return embedded_backend.audit_source_local("", payload)
     try:
         response = requests.post(
             f"{_base_url(base_url)}/llm/audit-source",
@@ -839,6 +894,103 @@ def send_post_to_buffer(base_url: str | None, post_id: int) -> dict[str, Any]:
         if isinstance(body, dict) and not message:
             message = body.get("detail") or str(body)
         return {"ok": False, "error": message, **(body if isinstance(body, dict) else {})}
+    except requests.RequestException as exc:
+        return {"ok": False, "error": str(exc)}
+
+
+def get_ollama_health(base_url: str | None = None) -> dict[str, Any]:
+    if _use_embedded_for_local_llm():
+        from dashboard import embedded_backend
+
+        return embedded_backend.get_ollama_health("")
+    try:
+        response = requests.get(f"{_base_url(base_url)}/api/health/ollama", timeout=30)
+        response.raise_for_status()
+        return {"ok": True, "data": response.json()}
+    except requests.RequestException as exc:
+        return {"ok": False, "error": str(exc)}
+
+
+def get_buffer_health(base_url: str | None = None) -> dict[str, Any]:
+    try:
+        response = requests.get(f"{_base_url(base_url)}/api/health/buffer", timeout=60)
+        response.raise_for_status()
+        return {"ok": True, "data": response.json()}
+    except requests.RequestException as exc:
+        return {"ok": False, "error": str(exc)}
+
+
+def get_supabase_health(base_url: str | None = None) -> dict[str, Any]:
+    try:
+        response = requests.get(f"{_base_url(base_url)}/api/health/supabase", timeout=30)
+        response.raise_for_status()
+        return {"ok": True, "data": response.json()}
+    except requests.RequestException as exc:
+        return {"ok": False, "error": str(exc)}
+
+
+def draft_local_post(base_url: str | None, payload: dict[str, Any]) -> dict[str, Any]:
+    if _use_embedded_for_local_llm():
+        from dashboard import embedded_backend
+
+        return embedded_backend.draft_local_post("", payload)
+    try:
+        response = requests.post(
+            f"{_base_url(base_url)}/api/llm/draft-local",
+            json=payload,
+            timeout=180,
+        )
+        response.raise_for_status()
+        return {"ok": True, "data": response.json()}
+    except requests.RequestException as exc:
+        message = str(exc)
+        if isinstance(exc, requests.HTTPError) and exc.response is not None:
+            try:
+                message = exc.response.json().get("detail", message)
+            except ValueError:
+                message = exc.response.text or message
+        return {"ok": False, "error": message}
+
+
+def approve_post(base_url: str | None, post_id: int) -> dict[str, Any]:
+    try:
+        response = requests.post(f"{_base_url(base_url)}/api/posts/{post_id}/approve", timeout=30)
+        response.raise_for_status()
+        return {"ok": True, **response.json()}
+    except requests.RequestException as exc:
+        message = str(exc)
+        if isinstance(exc, requests.HTTPError) and exc.response is not None:
+            try:
+                message = exc.response.json().get("detail", message)
+            except ValueError:
+                message = exc.response.text or message
+        return {"ok": False, "error": message}
+
+
+def run_e2e_pipeline(
+    base_url: str | None,
+    *,
+    dry_run: bool = True,
+    admin_secret: str = "",
+) -> dict[str, Any]:
+    headers: dict[str, str] = {}
+    secret = admin_secret or os.environ.get("ADMIN_TEST_SECRET") or os.environ.get("BUFFER_TEST_SECRET", "")
+    if secret:
+        headers["X-Admin-Secret"] = secret.strip()
+    try:
+        response = requests.post(
+            f"{_base_url(base_url)}/api/test/e2e-local-to-buffer",
+            json={"dry_run": dry_run},
+            headers=headers,
+            timeout=300,
+        )
+        try:
+            body = response.json()
+        except ValueError:
+            body = {"error": response.text}
+        if response.ok:
+            return {"ok": True, **body} if isinstance(body, dict) else {"ok": True, "data": body}
+        return {"ok": False, **body} if isinstance(body, dict) else {"ok": False, "error": str(body)}
     except requests.RequestException as exc:
         return {"ok": False, "error": str(exc)}
 
